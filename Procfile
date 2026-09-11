@@ -1,0 +1,1 @@
+worker: python command_bot.py
