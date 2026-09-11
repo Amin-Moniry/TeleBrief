@@ -1,0 +1,37 @@
+name: Deploy to Railway
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy to Railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          railway link ${{ secrets.RAILWAY_PROJECT_ID }}
+          railway up --detach
+
+      - name: Set Environment Variables
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          railway variables --set API_ID="${{ secrets.API_ID }}"
+          railway variables --set API_HASH="${{ secrets.API_HASH }}"
+          railway variables --set SESSION_STRING="${{ secrets.SESSION_STRING }}"
+          railway variables --set BOT_TOKEN="${{ secrets.BOT_TOKEN }}"
+          railway variables --set MY_CHAT_ID="${{ secrets.MY_CHAT_ID }}"
+          railway variables --set XKIRO_API_KEY="${{ secrets.XKIRO_API_KEY }}"
+          railway variables --set API_BASE_URL="${{ secrets.API_BASE_URL }}"
+          railway variables --set DEFAULT_MODEL="${{ secrets.DEFAULT_MODEL }}"
+          railway variables --set HOURS_WINDOW="${{ secrets.HOURS_WINDOW }}"
