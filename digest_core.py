@@ -15,20 +15,26 @@ from telethon.sessions import StringSession
 
 # ============ تنظیمات ============
 
-API_ID = int(os.environ.get("API_ID", "33197150"))
-API_HASH = os.environ.get("API_HASH", "00241aa583da768ca264c0c1a2b525c7")
+def get_env(key, default):
+    val = os.environ.get(key, "")
+    if val is not None and str(val).strip() != "":
+        return str(val).strip()
+    return default
 
-SESSION_STRING = os.environ.get(
+API_ID = int(get_env("API_ID", 33197150))
+API_HASH = get_env("API_HASH", "00241aa583da768ca264c0c1a2b525c7")
+
+SESSION_STRING = get_env(
     "SESSION_STRING",
     "1BJWap1wBu3bHST59SkcKIad8BqzpVX4xOXrhW8k2YrHoZTgRJKTwNcz7rdTevMc_DU5W-ZcZ_wO4i5lqSTvJJahJmnCscdbHPxY6zeMAEccBkTxqFyN94K0KGucPc-68XzZgCYHLQC5Yrq2PDIbn5I9l6YfGNJH1xOU5Pr8w_iW2YnBgw7TpbqVcvb3UY3PC4MDKOmnLeYc-iM-aKM8JAO2O9TYAp5C66M-7vYkxs5tOd4Mm6AC8DH7SSjXLXKNNIrxmupv0pIdoJXcJq9V9TAbPbGwznKyVmFq1XCicstERa4Q0xdDN3pjTjquL_9Bo37sFeXxI0RNqGN1DnWbPzVqIqgmVXqY="
 )
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "8801197040:AAFRyAxzYQFRKny37k5QtmW9mgE267V0Cq0")
-MY_CHAT_ID = os.environ.get("MY_CHAT_ID", "8717803856")
+BOT_TOKEN = get_env("BOT_TOKEN", "8801197040:AAFRyAxzYQFRKny37k5QtmW9mgE267V0Cq0")
+MY_CHAT_ID = get_env("MY_CHAT_ID", "8717803856")
 
-XKIRO_API_KEY = os.environ.get("XKIRO_API_KEY", "sk-xt-ada29862a0fee61042d1f4fde2c5e57ea7beee26e3a04c54")
-API_BASE_URL = os.environ.get("API_BASE_URL", "https://api.xkiro.com/v1")
-XKIRO_MODEL = os.environ.get("DEFAULT_MODEL", os.environ.get("XKIRO_MODEL", "deepseek/deepseek-v4-pro"))
+XKIRO_API_KEY = get_env("XKIRO_API_KEY", "sk-xt-ada29862a0fee61042d1f4fde2c5e57ea7beee26e3a04c54")
+API_BASE_URL = get_env("API_BASE_URL", "https://api.xkiro.com/v1")
+XKIRO_MODEL = get_env("DEFAULT_MODEL", get_env("XKIRO_MODEL", "deepseek/deepseek-v4-pro"))
 
 CHANNELS = [
     "cybersecurityexperts",
@@ -39,7 +45,7 @@ CHANNELS = [
     "cloudandcybersecurity",
 ]
 
-HOURS_WINDOW = int(os.environ.get("HOURS_WINDOW", "12"))
+HOURS_WINDOW = int(get_env("HOURS_WINDOW", 12))
 
 FOOTER = "\n\n[𝐉𝐎𝐈𝐍](https://t.me/telebriefdata_bot) ➣ telebriefdata_bot"
 
