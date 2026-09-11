@@ -15,26 +15,24 @@ from telethon.sessions import StringSession
 
 # ============ تنظیمات ============
 
-def get_env(key, default):
+def get_env_int(key, default=0):
     val = os.environ.get(key, "")
-    if val is not None and str(val).strip() != "":
-        return str(val).strip()
+    if val and str(val).strip().isdigit():
+        return int(str(val).strip())
     return default
 
-API_ID = int(get_env("API_ID", 33197150))
-API_HASH = get_env("API_HASH", "00241aa583da768ca264c0c1a2b525c7")
+# این موارد مستقیماً از سکرت‌های گیت‌هاب خوانده می‌شوند
+API_ID = get_env_int("API_ID", 0)
+API_HASH = os.environ.get("API_HASH", "").strip()
+SESSION_STRING = os.environ.get("SESSION_STRING", "").strip()
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "").strip()
+MY_CHAT_ID = os.environ.get("MY_CHAT_ID", "").strip()
+XKIRO_API_KEY = os.environ.get("XKIRO_API_KEY", "").strip()
+API_BASE_URL = os.environ.get("API_BASE_URL", "").strip()
 
-SESSION_STRING = get_env(
-    "SESSION_STRING",
-    "1BJWap1wBu3bHST59SkcKIad8BqzpVX4xOXrhW8k2YrHoZTgRJKTwNcz7rdTevMc_DU5W-ZcZ_wO4i5lqSTvJJahJmnCscdbHPxY6zeMAEccBkTxqFyN94K0KGucPc-68XzZgCYHLQC5Yrq2PDIbn5I9l6YfGNJH1xOU5Pr8w_iW2YnBgw7TpbqVcvb3UY3PC4MDKOmnLeYc-iM-aKM8JAO2O9TYAp5C66M-7vYkxs5tOd4Mm6AC8DH7SSjXLXKNNIrxmupv0pIdoJXcJq9V9TAbPbGwznKyVmFq1XCicstERa4Q0xdDN3pjTjquL_9Bo37sFeXxI0RNqGN1DnWbPzVqIqgmVXqY="
-)
-
-BOT_TOKEN = get_env("BOT_TOKEN", "8801197040:AAFRyAxzYQFRKny37k5QtmW9mgE267V0Cq0")
-MY_CHAT_ID = get_env("MY_CHAT_ID", "8717803856")
-
-XKIRO_API_KEY = get_env("XKIRO_API_KEY", "sk-xt-ada29862a0fee61042d1f4fde2c5e57ea7beee26e3a04c54")
-API_BASE_URL = get_env("API_BASE_URL", "https://api.xkiro.com/v1")
-XKIRO_MODEL = get_env("DEFAULT_MODEL", get_env("XKIRO_MODEL", "deepseek/deepseek-v4-pro"))
+# این دو مورد با مقدار پیش‌فرض در کد باقی می‌مانند
+XKIRO_MODEL = os.environ.get("DEFAULT_MODEL", "deepseek/deepseek-v4-pro").strip()
+HOURS_WINDOW = get_env_int("HOURS_WINDOW", 12)
 
 CHANNELS = [
     "cybersecurityexperts",
@@ -44,8 +42,6 @@ CHANNELS = [
     "androidMalware",
     "cloudandcybersecurity",
 ]
-
-HOURS_WINDOW = int(get_env("HOURS_WINDOW", 12))
 
 FOOTER = "\n\n[𝐉𝐎𝐈𝐍](https://t.me/telebriefdata_bot) ➣ telebriefdata_bot"
 
@@ -118,23 +114,45 @@ def get_ai_picks(messages):
         return []
 
     prompt = build_prompt(messages)
+    # حداکثر 3 بار تلاش می‌کنیم تا API به مشکل‌ساز نشود
+    for attempt in range(3):
+        try:
+            response = requests.post(
+                f"{API_BASE_URL}/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {XKIRO_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": XKIRO_MODEL,
+                    "messages": [{"role": "user", "content": prompt}],
+                },
+                timeout=180,
+            )
+            response.raise_for_status()
+            break  # موفقیت‌آمیز
+        except requests.exceptions.HTTPError as http_err:
+            # 5xx یعنی مشکل سرور، یکبار صبر می‌کنیم و دوباره سعی می‌کنیم
+            print(f"خطای HTTP در درخواست XKIRO (تلاش {attempt + 1}): {http_err}")
+            if attempt < 2:
+                import time
+                time.sleep(2 ** attempt)  # back‑off کوتاه
+                continue
+            else:
+                print("به‌نظر می‌رسد سرویس XKIRO در دسترس نیست. خروجی خالی بازگردانده می‌شود.")
+                return []
+        except Exception as e:
+            print(f"خطا در ارتباط با XKIRO (تلاش {attempt + 1}): {e}")
+            if attempt < 2:
+                import time
+                time.sleep(2 ** attempt)
+                continue
+            else:
+                return []
 
-    response = requests.post(
-        f"{API_BASE_URL}/chat/completions",
-        headers={
-            "Authorization": f"Bearer {XKIRO_API_KEY}",
-            "Content-Type": "application/json",
-        },
-        json={
-            "model": XKIRO_MODEL,
-            "messages": [{"role": "user", "content": prompt}],
-        },
-        timeout=180,
-    )
-    response.raise_for_status()
     raw = response.json()["choices"][0]["message"]["content"].strip()
 
-    # اگه مدل دور خروجی ``` گذاشته باشه، پاکش می‌کنیم
+    # اگر مدل خروجی با ``` احاطه شده بود، آن را پاک می‌کنیم
     if raw.startswith("```"):
         raw = raw.strip("`")
         if raw.lower().startswith("json"):
@@ -149,7 +167,6 @@ def get_ai_picks(messages):
         print("خطا در پردازش خروجی مدل:", e)
         print("خروجی خام مدل:", raw)
         picks = []
-
     return picks
 
 
