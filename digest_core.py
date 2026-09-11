@@ -1,3 +1,4 @@
+import os
 import json
 import time
 from datetime import datetime, timedelta, timezone
@@ -14,18 +15,20 @@ from telethon.sessions import StringSession
 
 # ============ تنظیمات ============
 
-API_ID = 33197150
-API_HASH = "00241aa583da768ca264c0c1a2b525c7"
+API_ID = int(os.environ.get("API_ID", "33197150"))
+API_HASH = os.environ.get("API_HASH", "00241aa583da768ca264c0c1a2b525c7")
 
-# این رو خودت پر کن (همون سشن استرینگی که از login_once.py گرفتی)
-SESSION_STRING = "1BJWap1wBu3bHST59SkcKIad8BqzpVX4xOXrhW8k2YrHoZTgRJKTwNcz7rdTevMc_DU5W-ZcZ_wO4i5lqSTvJJahJmnCscdbHPxY6zeMAEccBkTxqFyN94K0KGucPc-68XzZgCYHLQC5Yrq2PDIbn5I9l6YfGNJH1xOU5Pr8w_iW2YnBgw7TpbqVcvb3UY3PC4MDKOmnLeYc-iM-aKM8JAO2O9TYAp5C66M-7vYkxs5tOd4Mm6AC8DH7SSjXLXKNNIrxmupv0pIdoJXcJq9V9TAbPbGwznKyVmFq1XCicstERa4Q0xdDN3pjTjquL_9Bo37sFeXxI0RNqGN1DnWbPzVqIqgmVXqY="
+SESSION_STRING = os.environ.get(
+    "SESSION_STRING",
+    "1BJWap1wBu3bHST59SkcKIad8BqzpVX4xOXrhW8k2YrHoZTgRJKTwNcz7rdTevMc_DU5W-ZcZ_wO4i5lqSTvJJahJmnCscdbHPxY6zeMAEccBkTxqFyN94K0KGucPc-68XzZgCYHLQC5Yrq2PDIbn5I9l6YfGNJH1xOU5Pr8w_iW2YnBgw7TpbqVcvb3UY3PC4MDKOmnLeYc-iM-aKM8JAO2O9TYAp5C66M-7vYkxs5tOd4Mm6AC8DH7SSjXLXKNNIrxmupv0pIdoJXcJq9V9TAbPbGwznKyVmFq1XCicstERa4Q0xdDN3pjTjquL_9Bo37sFeXxI0RNqGN1DnWbPzVqIqgmVXqY="
+)
 
-BOT_TOKEN = "8801197040:AAFRyAxzYQFRKny37k5QtmW9mgE267V0Cq0"
-MY_CHAT_ID = "8717803856"
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "8801197040:AAFRyAxzYQFRKny37k5QtmW9mgE267V0Cq0")
+MY_CHAT_ID = os.environ.get("MY_CHAT_ID", "8717803856")
 
-XKIRO_API_KEY = "sk-xt-ada29862a0fee61042d1f4fde2c5e57ea7beee26e3a04c54"
-API_BASE_URL = "https://api.xkiro.com/v1"
-XKIRO_MODEL = "deepseek/deepseek-v4-pro"
+XKIRO_API_KEY = os.environ.get("XKIRO_API_KEY", "sk-xt-ada29862a0fee61042d1f4fde2c5e57ea7beee26e3a04c54")
+API_BASE_URL = os.environ.get("API_BASE_URL", "https://api.xkiro.com/v1")
+XKIRO_MODEL = os.environ.get("DEFAULT_MODEL", os.environ.get("XKIRO_MODEL", "deepseek/deepseek-v4-pro"))
 
 CHANNELS = [
     "cybersecurityexperts",
@@ -36,7 +39,7 @@ CHANNELS = [
     "cloudandcybersecurity",
 ]
 
-HOURS_WINDOW = 12
+HOURS_WINDOW = int(os.environ.get("HOURS_WINDOW", "12"))
 
 FOOTER = "\n\n[𝐉𝐎𝐈𝐍](https://t.me/telebriefdata_bot) ➣ telebriefdata_bot"
 
@@ -178,19 +181,27 @@ def format_date_header(hours=HOURS_WINDOW):
 
 def send_message(chat_id, text):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": "Markdown",
+        "disable_web_page_preview": True,
+    }
     try:
-        requests.post(
-            url,
-            json={
-                "chat_id": chat_id,
-                "text": text,
-                "parse_mode": "Markdown",
-                "disable_web_page_preview": True,
-            },
-            timeout=30,
-        )
+        resp = requests.post(url, json=payload, timeout=30)
+        if resp.status_code != 200:
+            print(f"هشدار: ارسال با Markdown ناموفق بود ({resp.status_code}): {resp.text}")
+            # تلاش مجدد بدون Markdown اگر خطای فرمت بود
+            payload.pop("parse_mode")
+            retry_resp = requests.post(url, json=payload, timeout=30)
+            if retry_resp.status_code == 200:
+                print("پیام به صورت متن ساده با موفقیت ارسال شد.")
+            else:
+                print(f"خطا در ارسال پیام ساده ({retry_resp.status_code}): {retry_resp.text}")
+        else:
+            print("پیام با موفقیت ارسال شد.")
     except Exception as e:
-        print(f"خطا در ارسال پیام: {e}")
+        print(f"خطا در ارتباط با سرور تلگرام: {e}")
 
 
 def send_digest(chat_id, picks, include_date_header=False, hours=HOURS_WINDOW):

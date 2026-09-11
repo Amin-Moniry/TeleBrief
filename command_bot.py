@@ -4,10 +4,12 @@ import os
 
 import requests
 
-from digest_core import BOT_TOKEN, MY_CHAT_ID, HOURS_WINDOW, run_digest
+from digest_core import BOT_TOKEN, MY_CHAT_ID, HOURS_WINDOW, run_digest, send_message
 
 STATE_FILE = "bot_state.json"
-COMMAND = "/todaynews"
+COMMAND_DIGEST = "/todaynews"
+COMMAND_START = "/start"
+COMMAND_HELP = "/help"
 
 
 def load_offset():
@@ -21,8 +23,11 @@ def load_offset():
 
 
 def save_offset(offset):
-    with open(STATE_FILE, "w", encoding="utf-8") as f:
-        json.dump({"offset": offset}, f)
+    try:
+        with open(STATE_FILE, "w", encoding="utf-8") as f:
+            json.dump({"offset": offset}, f)
+    except Exception as e:
+        print(f"خطا در ذخیره آفست: {e}")
 
 
 def get_updates(offset):
@@ -34,42 +39,60 @@ def get_updates(offset):
 
 async def process_commands():
     offset = load_offset()
-    updates = get_updates(offset)
+    try:
+        updates = get_updates(offset)
+    except Exception as e:
+        print(f"خطا در دریافت آپدیت‌ها: {e}")
+        return
 
     if not updates:
         print("پیام جدیدی نبود.")
         return
 
     max_update_id = offset
-    triggered = False
+    digest_requested = False
 
     for update in updates:
         update_id = update.get("update_id", 0)
-        # آفست بعدی باید یکی بیشتر از بزرگترین update_id باشه
         max_update_id = max(max_update_id, update_id + 1)
 
         message = update.get("message") or {}
         text = (message.get("text") or "").strip()
         chat_id = str(message.get("chat", {}).get("id", ""))
 
-        # فقط به کامندی که از چت خودمون اومده واکنش نشون بده
-        if chat_id != str(MY_CHAT_ID):
+        if not text or not chat_id:
             continue
 
-        # پشتیبانی از هر دو حالت /todaynews و /todaynews@BotUsername
-        if text.split("@")[0] == COMMAND:
-            triggered = True
+        cmd = text.split("@")[0].lower()
 
-    # آفست رو همیشه ذخیره کن، حتی اگه کامندی پیدا نشد، تا پیام‌های قدیمی دوباره چک نشن
+        # چک کردن دسترسی چت مجاز
+        if chat_id != str(MY_CHAT_ID):
+            print(f"پیام از کاربر ناشناس دریافت شد: {chat_id}")
+            send_message(chat_id, "⛔️ دسترسی شما به این ربات مجاز نیست.")
+            continue
+
+        if cmd in (COMMAND_START, COMMAND_HELP):
+            print(f"کامند {cmd} دریافت شد.")
+            welcome_msg = (
+                "👋 **سلام! به TeleBrief خوش آمدید.**\n\n"
+                "برای دریافت خلاصه و تحلیل اخبار امنیت سایبری ۱۲ ساعت گذشته، دستور زیر را ارسال کنید:\n"
+                "👉 `/todaynews`"
+            )
+            send_message(chat_id, welcome_msg)
+
+        elif cmd == COMMAND_DIGEST:
+            print("درخواست /todaynews دریافت شد.")
+            digest_requested = True
+
+    # آفست رو ذخیره کن
     save_offset(max_update_id)
 
-    if triggered:
-        print("درخواست /todaynews دریافت شد، در حال آماده‌سازی گزارش...")
+    if digest_requested:
+        print("در حال آماده‌سازی و ارسال گزارش...")
         count = await run_digest(MY_CHAT_ID, hours=HOURS_WINDOW, include_date_header=True)
-        print(f"گزارش ارسال شد. {count} پیام.")
-    else:
-        print("کامند مرتبطی پیدا نشد.")
+        print(f"گزارش ارسال شد. تعداد پیام: {count}")
 
 
 if __name__ == "__main__":
     asyncio.run(process_commands())
+
