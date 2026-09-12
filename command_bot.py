@@ -7,6 +7,7 @@ from pathlib import Path
 
 from telegram import BotCommand, InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
+from telegram.error import BadRequest
 from telegram.ext import (
     Application, CallbackQueryHandler, CommandHandler, ContextTypes,
     MessageHandler, filters,
@@ -238,15 +239,21 @@ async def animate_loading(status_message, category_name: str, hours: int) -> Non
         while True:
             stage = LOADING_STAGES[stage_index % len(LOADING_STAGES)]
             completed = "●" * stage_index + "○" * (len(LOADING_STAGES) - stage_index)
-            await status_message.edit_text(
-                "🔍 <b>گزارش هوشمند | TeleBrief</b>\n"
-                f"\n<i>بخش: {category_name}</i>\n\n"
-                f"<blockquote>بازه زمانی: {hours} ساعت اخیر\n"
-                f"مرحله فعلی: {stage}\n"
-                f"پیشرفت: {completed}</blockquote>\n\n"
-                "🧠 در حال بررسی دقیق پیام‌ها هستم؛ موارد ارزشمند جدا می‌شوند.",
-                parse_mode=ParseMode.HTML,
-            )
+            try:
+                await status_message.edit_text(
+                    "🔍 <b>گزارش هوشمند | TeleBrief</b>\n"
+                    f"\n<i>بخش: {category_name}</i>\n\n"
+                    f"<blockquote>بازه زمانی: {hours} ساعت اخیر\n"
+                    f"مرحله فعلی: {stage}\n"
+                    f"پیشرفت: {completed}</blockquote>\n\n"
+                    "🧠 در حال بررسی دقیق پیام‌ها هستم؛ موارد ارزشمند جدا می‌شوند.",
+                    parse_mode=ParseMode.HTML,
+                )
+            except BadRequest as exc:
+                # وقتی متن جدید دقیقاً با متن فعلی یکسان است (بین دو تغییر مرحله)،
+                # تلگرام همین خطای بی‌ضرر را می‌دهد؛ نادیده می‌گیریم و لودینگ ادامه پیدا می‌کند.
+                if "not modified" not in str(exc).lower():
+                    raise
             tick += 1
             if tick % 4 == 0:
                 stage_index = (stage_index + 1) % len(LOADING_STAGES)
