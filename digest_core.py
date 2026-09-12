@@ -55,7 +55,7 @@ AI_CHANNELS = [
     "Hugging_face_news", "samiotech",
 ]
 CHANNELS = SECURITY_CHANNELS
-FOOTER = '<a href="https://t.me/telebriefdata_bot">TeleBrief</a>'
+FOOTER = '<a href="https://t.me/atishbekakestar">𝐉𝐎𝐈𝐍</a> ➣ <b>TeleBrief</b>'
 
 
 @dataclass(frozen=True)
@@ -373,37 +373,60 @@ def format_date_header(hours: int, total_messages: int, active_channels: int, la
 
 
 def format_story(story: dict[str, Any], rank: int, category: str, lang: str = "fa") -> str:
+    """خروجی فارسی تمیز با سه Quote و monospace محدود برای متادیتا."""
     icon = "🤖" if category == "ai" else "🛡"
-    # هر پاراگراف با یک عبارت فارسی آغاز می‌شود تا تلگرام جهت RTL را اشتباه نکند.
+    title = html.escape(story.get("title", "خبر مهم"))
+    summary = html.escape(story.get("summary", ""))
+    why = html.escape(story.get("why_important", ""))
+    score = story.get("score", 0)
+
     lines = [
-        rtl(f"{icon} <b>{rank}. گزارش: {html.escape(story['title'])}</b>"),
+        rtl(f"{icon} <b>{rank}. گزارش: {title}</b>"),
+        "",
+        f"<code>اهمیت: {score}/100</code>",
         "",
         "<blockquote expandable>" + rtl(
-            f"خلاصه: {html.escape(story['summary'])}"
+            f"خلاصه خبر:\n{summary}"
         ) + "</blockquote>",
     ]
-    if story.get("why_important"):
+
+    if why or story.get("key_points"):
+        detail_lines = []
+        if why:
+            detail_lines.append(f"دلیل اهمیت:\n{why}")
+        if story.get("key_points"):
+            detail_lines.append(
+                "نکات کلیدی:\n" + "\n".join(
+                    f"• {html.escape(point)}" for point in story["key_points"]
+                )
+            )
         lines.extend([
-            "", rtl("<b>چرا مهم است؟</b>"),
-            rtl(f"دلیل اهمیت: {html.escape(story['why_important'])}"),
+            "",
+            "<blockquote expandable>" + rtl("\n\n".join(detail_lines)) + "</blockquote>",
         ])
-    if story.get("key_points"):
-        lines.extend(["", rtl("<b>نکات کلیدی</b>")])
-        lines.extend(
-            rtl(f"• نکته: {html.escape(point)}") for point in story["key_points"]
-        )
+
     if story.get("actions"):
-        lines.extend(["", rtl("<b>اقدام پیشنهادی</b>")])
-        lines.extend(
-            rtl(f"• اقدام: {html.escape(action)}") for action in story["actions"]
+        actions = "اقدام‌های پیشنهادی:\n" + "\n".join(
+            f"• {html.escape(action)}" for action in story["actions"]
         )
+        lines.extend(["", "<blockquote>" + rtl(actions) + "</blockquote>"])
 
     source_links = []
-    for source in story["sources"]:
-        channel = html.escape(source["channel"])
-        url = f"https://t.me/{source['channel']}/{source['message_id']}"
-        source_links.append(f'<a href="{url}">مشاهده پیام در @{channel}</a>')
-    lines.extend(["", rtl("<b>منبع مستقیم پیام</b>"), rtl(" | ".join(source_links))])
+    for source in story.get("sources", []):
+        channel_raw = str(source["channel"])
+        channel = html.escape(channel_raw)
+        url = f"https://t.me/{channel_raw}/{source['message_id']}"
+        source_links.append(f'<a href="{url}">مشاهده پیام @{channel}</a>')
+    if source_links:
+        lines.extend([
+            "",
+            rtl("📎 <b>منبع مستقیم</b>"),
+            rtl(" | ".join(source_links)),
+        ])
+    lines.extend([
+        "",
+        "<blockquote>" + rtl(f"➤ {FOOTER}") + "</blockquote>",
+    ])
     return "\n".join(lines)
 
 

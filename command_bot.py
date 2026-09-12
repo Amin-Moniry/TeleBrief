@@ -149,8 +149,8 @@ HELP_TEXT = (
 )
 
 ABOUT_TEXT = (
-    "ℹ️ <b>درباره TeleBrief</b>\n\n"
-    "یک خبرخوان تحلیلی فارسی برای حوزه‌های <b>هوش مصنوعی</b> و <b>امنیت سایبری</b>. "
+    "\u200fℹ️ <b>درباره</b> <bdi>TeleBrief</bdi>\n\n"
+    "\u200fیک خبرخوان تحلیلی فارسی برای حوزه‌های <b>هوش مصنوعی</b> و <b>امنیت سایبری</b>. "
     "هدفش زیادکردن تعداد پیام‌ها نیست؛ هدفش پیدا کردن چیزهایی است که واقعاً ارزش خواندن دارند.\n\n"
     "<blockquote>کمتر اسکرول کن، بهتر باخبر شو.</blockquote>"
 )
@@ -223,23 +223,35 @@ async def send_story_page(
 
 
 LOADING_FRAMES = ("⣾", "⣽", "⣻", "⢿")
+LOADING_STAGES = (
+    "اتصال به منابع معتبر",
+    "استخراج پیام‌های مهم",
+    "حذف تبلیغات و موارد تکراری",
+    "رتبه‌بندی نهایی خبرها",
+)
 
 
 async def animate_loading(status_message, category_name: str, hours: int) -> None:
-    """فقط اسپینر را سریع عوض می‌کند؛ متن پیام ثابت می‌ماند."""
+    """لودینگ داشبوردی: قاب ثابت، مرحله متغیر، اسپینر در انتهای وضعیت."""
     frame_index = 0
+    stage_index = 0
     try:
         while True:
             frame = LOADING_FRAMES[frame_index % len(LOADING_FRAMES)]
-            category_fa = "امنیت سایبری" if "Cyber" in category_name else "هوش مصنوعی"
+            stage = LOADING_STAGES[stage_index % len(LOADING_STAGES)]
+            completed = "●" * stage_index + "○" * (len(LOADING_STAGES) - stage_index)
             await status_message.edit_text(
-                "🤖 <b>بات TeleBrief</b>\n\n"
-                f"<b>در حال جست‌وجوی عمیق در بخش {category_fa} هستم.</b>\n\n"
-                f"<blockquote>پیام‌های {hours} ساعت اخیر در حال بررسی هستند.\n"
-                f"لطفاً چند لحظه صبر کن... {frame}</blockquote>",
+                "🔍 <b>TeleBrief | گزارش هوشمند</b>\n"
+                f"<i>بخش: {category_name}</i>\n\n"
+                f"<blockquote>بازه زمانی: {hours} ساعت اخیر\n"
+                f"مرحله فعلی: {stage}\n"
+                f"پیشرفت: {completed}                 {frame}</blockquote>\n\n"
+                "🧠 در حال بررسی دقیق پیام‌ها هستم؛ موارد ارزشمند جدا می‌شوند.",
                 parse_mode=ParseMode.HTML,
             )
             frame_index += 1
+            if frame_index % 4 == 0:
+                stage_index = (stage_index + 1) % len(LOADING_STAGES)
             await asyncio.sleep(0.8)
     except asyncio.CancelledError:
         return
