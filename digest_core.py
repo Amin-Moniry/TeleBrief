@@ -162,14 +162,17 @@ def extract_json(raw: str) -> Any:
     try:
         return json.loads(raw)
     except json.JSONDecodeError:
-        start_candidates = [i for i in (raw.find("["), raw.find("{")) if i >= 0]
-        if not start_candidates:
-            raise
-        start = min(start_candidates)
-        end = max(raw.rfind("]"), raw.rfind("}"))
-        if end <= start:
-            raise
-        return json.loads(raw[start:end + 1])
+        # Some providers add a short note around the JSON. Decode the first
+        # complete object/array instead of slicing between unrelated brackets.
+        decoder = json.JSONDecoder()
+        for match in re.finditer(r"[\[{]", raw):
+            try:
+                value, _ = decoder.raw_decode(raw[match.start():])
+            except json.JSONDecodeError:
+                continue
+            if isinstance(value, (list, dict)):
+                return value
+        raise
 
 
 def call_model(prompt: str, temperature: float = 0.15) -> Any:
@@ -216,9 +219,21 @@ def shortlist_prompt(messages: list[ChannelMessage], category: str, lang: str = 
     field = "هوش مصنوعی" if category == "ai" else "امنیت سایبری"
     output_language = "فارسی"
     sources = "\n\n".join(message.prompt_block() for message in messages)
+    category_policy = (
+        "در بخش هوش مصنوعی، معرفی ابزار، قابلیت، مدل، پرامپت، گردش‌کار و دموی "
+        "کاربردی مرتبط را حتی اگر کوتاه یا کم‌اثر است تحلیل کن؛ صرفاً به‌دلیل "
+        "اهمیت پایین حذفش نکن و به‌جای حذف، score واقع‌بینانه بده. فقط موارد "
+        "نامرتبط با هوش مصنوعی، تبلیغ خالص یا متن فاقد اطلاعات قابل‌تحلیل را حذف کن."
+        if category == "ai"
+        else
+        "در بخش امنیت سایبری فقط رخداد، آسیب‌پذیری، تهدید، ابزار دفاعی یا توصیه "
+        "امنیتی مستند و مرتبط را نگه دار و موارد صرفاً مرتبط با فناوری یا هوش "
+        "مصنوعی را بدون مؤلفه امنیتی حذف کن."
+    )
     return f"""این یک مرحله غربال‌گری عمیق خبر در حوزه {field} است. همه فیلدهای خروجی را به زبان {output_language} بنویس.
 همه منابع زیر را دقیق بخوان. تبلیغ، بازنشر تکراری، شایعه بی‌سند، متن انگیزشی و خبر کم‌اثر را حذف کن.
 تمام رویدادهای واقعاً مهم این بسته را انتخاب کن؛ هیچ خبر مهمی را به‌خاطر رتبه یا تعداد حذف نکن. در این بسته می‌توانی چندین رویداد برگردانی. تبلیغات، اسپم، بازنشر بی‌ارزش و موارد کم‌اهمیت را حذف کن، اما هر ابزار جدید، به‌روزرسانی مهم، آسیب‌پذیری، قابلیت کاربردی یا خبر ارزشمند را نگه دار. اهمیت را با تازگی، اثر عملی، اعتبار منبع، گستره اثر و شواهد بسنج.
+{category_policy}
 اگر چند پیام درباره یک رویدادند، آن‌ها را یک مورد کن و همه شناسه‌های منبع مرتبط را نگه دار.
 هیچ واقعیتی خارج از متن اضافه نکن. خروجی فقط آرایه JSON با این ساختار باشد:
 [
@@ -335,28 +350,38 @@ async def analyze_messages(
     grouped_messages: dict[str, list[ChannelMessage]], category: str, lang: str = "fa"
 ) -> list[dict[str, Any]]:
     all_messages = [m for messages in grouped_messages.values() for m in messages]
+    if not all_messages:
+        return []
     valid_sources = {(m.channel.lower(), m.message_id) for m in all_messages}
     batches = make_batches(all_messages)
     semaphore = asyncio.Semaphore(3)
 
-    async def analyze_batch(batch: list[ChannelMessage]) -> Any:
+    async def analyze_batch(batch: list[ChannelMessage]) -> tuple[bool, list[dict[str, Any]]]:
         async with semaphore:
-            return await asyncio.to_thread(
-                call_model, shortlist_prompt(batch, category, lang)
-            )
+            try:
+                raw = await asyncio.to_thread(
+                    call_model, shortlist_prompt(batch, category, lang)
+                )
+                return True, normalize_stories(raw, valid_sources)
+            except Exception as exc:
+                logger.error("یک دسته تحلیل نشد: %s", exc)
+                return False, []
 
     tasks = [analyze_batch(batch) for batch in batches]
-    results = await asyncio.gather(*tasks, return_exceptions=True)
+    results = await asyncio.gather(*tasks)
 
     candidates: list[dict[str, Any]] = []
-    for result in results:
-        if isinstance(result, Exception):
-            logger.error("یک دسته تحلیل نشد: %s", result)
-            continue
-        candidates.extend(normalize_stories(result, valid_sources))
+    successful_batches = 0
+    for succeeded, stories in results:
+        if succeeded:
+            successful_batches += 1
+            candidates.extend(stories)
     if not candidates:
-        logger.warning("هیچ نامزد معتبری از مدل دریافت نشد؛ fallback فعال شد")
-        return fallback_stories(grouped_messages)
+        if successful_batches:
+            # [] is a valid editorial decision. Never disguise raw posts as AI analysis.
+            logger.info("مدل همه دسته‌ها را تحلیل کرد اما خبر قابل انتشار پیدا نشد")
+            return []
+        raise RuntimeError("هیچ دسته‌ای توسط مدل با موفقیت تحلیل نشد")
 
     candidates = sorted(
         candidates, key=lambda item: item.get("score", 0), reverse=True
