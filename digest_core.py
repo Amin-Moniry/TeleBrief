@@ -353,6 +353,35 @@ def clean_model_text(value: Any) -> str:
     return re.sub(r"[ \t]+", " ", text).strip()
 
 
+def flatten_text_items(value: Any) -> list[str]:
+    """بعضی مدل‌ها (برخلاف DeepSeek) به‌جای رشته ساده برای هر نکته/اقدام،
+    دیکشنری یا لیست تودرتو برمی‌گردانند (مثلاً {"statistic": "..."} یا
+    {"action": "...", "priority": "بالا"}). این تابع هر شکلی را باز می‌کند
+    و فقط متن تمیز فارسی را برمی‌گرداند تا هیچ‌وقت repr خام پایتون
+    (مثل {'statistic': ...}) در خروجی چاپ نشود."""
+    if value is None:
+        return []
+    if isinstance(value, (str, int, float)):
+        text = clean_model_text(value)
+        return [text] if text else []
+    if isinstance(value, list):
+        result: list[str] = []
+        for item in value:
+            result.extend(flatten_text_items(item))
+        return result
+    if isinstance(value, dict):
+        if value.get("action"):
+            base = clean_model_text(value["action"])
+            priority = clean_model_text(value.get("priority", ""))
+            if base:
+                return [f"{base} (اولویت: {priority})" if priority else base]
+        result = []
+        for v in value.values():
+            result.extend(flatten_text_items(v))
+        return result
+    return []
+
+
 def normalize_stories(data: Any, valid_sources: set[tuple[str, int]]) -> list[dict[str, Any]]:
     if isinstance(data, dict):
         data = data.get("stories", [])
@@ -379,16 +408,23 @@ def normalize_stories(data: Any, valid_sources: set[tuple[str, int]]) -> list[di
             score = max(0, min(100, int(item.get("score", 0))))
         except (TypeError, ValueError):
             score = 0
+        key_points: list[str] = []
+        for x in item.get("key_points", []):
+            key_points.extend(flatten_text_items(x))
+        actions: list[str] = []
+        for x in item.get("actions", []):
+            actions.extend(flatten_text_items(x))
         stories.append({
             "title": title,
             "summary": summary,
             "why_important": clean_model_text(item.get("why_important", "")),
-            "key_points": [clean_model_text(x) for x in item.get("key_points", []) if clean_model_text(x)][:7],
-            "actions": [clean_model_text(x) for x in item.get("actions", []) if clean_model_text(x)][:5],
+            "key_points": key_points[:7],
+            "actions": actions[:5],
             "score": score,
             "sources": sources,
         })
     return sorted(stories, key=lambda x: x["score"], reverse=True)
+
 
 
 
@@ -510,7 +546,7 @@ def format_story(story: dict[str, Any], rank: int, category: str, lang: str = "f
         if story.get("key_points"):
             detail_lines.append(
                 "نکات کلیدی:\n" + "\n".join(
-                    f"• {html.escape(point)}" for point in story["key_points"]
+                    rtl(f"• {html.escape(point)}") for point in story["key_points"]
                 )
             )
         lines.extend([
@@ -520,7 +556,7 @@ def format_story(story: dict[str, Any], rank: int, category: str, lang: str = "f
 
     if story.get("actions"):
         actions = "اقدام‌های پیشنهادی:\n" + "\n".join(
-            f"• {html.escape(action)}" for action in story["actions"]
+            rtl(f"• {html.escape(action)}") for action in story["actions"]
         )
         lines.extend(["", "<blockquote>" + rtl(actions) + "</blockquote>"])
 
