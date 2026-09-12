@@ -245,7 +245,8 @@ async def animate_loading(status_message, category_name: str, hours: int) -> Non
                 f"\n<i>بخش: {category_name}</i>\n\n"
                 f"<blockquote>بازه زمانی: {hours} ساعت اخیر\n"
                 f"مرحله فعلی: {stage}\n"
-                f"پیشرفت: {completed}                 {frame}</blockquote>\n\n"
+                f"پیشرفت: {completed}\n"
+                f"{frame}</blockquote>\n\n"
                 "🧠 در حال بررسی دقیق پیام‌ها هستم؛ موارد ارزشمند جدا می‌شوند.",
                 parse_mode=ParseMode.HTML,
             )
