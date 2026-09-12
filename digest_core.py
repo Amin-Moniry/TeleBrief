@@ -39,9 +39,9 @@ BOT_TOKEN = env_str("BOT_TOKEN")
 XKIRO_API_KEY = env_str("XKIRO_API_KEY")
 API_BASE_URL = env_str("API_BASE_URL").rstrip("/")
 XKIRO_MODEL = env_str("DEFAULT_MODEL", "deepseek/deepseek-v4-pro")
-HOURS_WINDOW = env_int("HOURS_WINDOW", 12)
+HOURS_WINDOW = env_int("HOURS_WINDOW", 24)
 MAX_MESSAGES_PER_CHANNEL = env_int("MAX_MESSAGES_PER_CHANNEL", 500)
-MAX_STORIES = env_int("MAX_STORIES", 10)
+MAX_STORIES = env_int("MAX_STORIES", 100)
 BATCH_CHAR_LIMIT = env_int("BATCH_CHAR_LIMIT", 45_000)
 
 SECURITY_CHANNELS = [
@@ -215,7 +215,7 @@ def shortlist_prompt(messages: list[ChannelMessage], category: str) -> str:
     sources = "\n\n".join(message.prompt_block() for message in messages)
     return f"""این یک مرحله غربال‌گری عمیق خبر در حوزه {field} است.
 همه منابع زیر را دقیق بخوان. تبلیغ، بازنشر تکراری، شایعه بی‌سند، متن انگیزشی و خبر کم‌اثر را حذف کن.
-حداکثر 8 رویداد واقعاً مهم را انتخاب کن. اهمیت را با تازگی، اثر عملی، اعتبار منبع، گستره اثر و شواهد بسنج.
+تمام رویدادهای واقعاً مهم را انتخاب کن (حداکثر 30 مورد برای هر دسته ورودی و بدون حذف مورد مهم). اهمیت را با تازگی، اثر عملی، اعتبار منبع، گستره اثر و شواهد بسنج.
 اگر چند پیام درباره یک رویدادند، آن‌ها را یک مورد کن و همه شناسه‌های منبع مرتبط را نگه دار.
 هیچ واقعیتی خارج از متن اضافه نکن. خروجی فقط آرایه JSON با این ساختار باشد:
 [
@@ -245,6 +245,13 @@ def merge_prompt(candidates: list[dict[str, Any]], category: str) -> str:
 {json.dumps(candidates, ensure_ascii=False)}"""
 
 
+def clean_model_text(value: Any) -> str:
+    """مارک‌داون مدل را حذف می‌کند؛ قالب نهایی فقط با HTML امن ساخته می‌شود."""
+    text = str(value or "").strip()
+    text = re.sub(r"(\*\*|__|```|`)", "", text)
+    return re.sub(r"[ \t]+", " ", text).strip()
+
+
 def normalize_stories(data: Any, valid_sources: set[tuple[str, int]]) -> list[dict[str, Any]]:
     if isinstance(data, dict):
         data = data.get("stories", [])
@@ -263,8 +270,8 @@ def normalize_stories(data: Any, valid_sources: set[tuple[str, int]]) -> list[di
                 continue
             if (channel.lower(), message_id) in valid_sources:
                 sources.append({"channel": channel, "message_id": message_id})
-        title = str(item.get("title", "")).strip()
-        summary = str(item.get("summary", "")).strip()
+        title = clean_model_text(item.get("title", ""))
+        summary = clean_model_text(item.get("summary", ""))
         if not title or not summary or not sources:
             continue
         try:
@@ -274,9 +281,9 @@ def normalize_stories(data: Any, valid_sources: set[tuple[str, int]]) -> list[di
         stories.append({
             "title": title,
             "summary": summary,
-            "why_important": str(item.get("why_important", "")).strip(),
-            "key_points": [str(x).strip() for x in item.get("key_points", []) if str(x).strip()][:5],
-            "actions": [str(x).strip() for x in item.get("actions", []) if str(x).strip()][:3],
+            "why_important": clean_model_text(item.get("why_important", "")),
+            "key_points": [clean_model_text(x) for x in item.get("key_points", []) if clean_model_text(x)][:7],
+            "actions": [clean_model_text(x) for x in item.get("actions", []) if clean_model_text(x)][:5],
             "score": score,
             "sources": sources[:5],
         })
@@ -311,43 +318,63 @@ async def analyze_messages(
 
     candidates = sorted(
         candidates, key=lambda item: item.get("score", 0), reverse=True
-    )[:50]
+    )[:120]
     merged = await asyncio.to_thread(call_model, merge_prompt(candidates, category))
     return normalize_stories(merged, valid_sources)[:MAX_STORIES]
+
+
+def rtl(value: str) -> str:
+    """RLM باعث می‌شود پاراگراف فارسی حتی با واژه‌های انگلیسی راست‌به‌چپ بماند."""
+    return "\u200f" + value
 
 
 def format_date_header(hours: int, total_messages: int, active_channels: int) -> str:
     now = datetime.now(TEHRAN_TZ) if TEHRAN_TZ else datetime.now()
     since = now - timedelta(hours=hours)
-    return (
-        "🗞 <b>گزارش تحلیلی TeleBrief</b>\n\n"
-        f"<blockquote>بازه: {html.escape(since.strftime('%Y/%m/%d %H:%M'))} تا "
-        f"{html.escape(now.strftime('%Y/%m/%d %H:%M'))}\n"
-        f"بررسی‌شده: {total_messages} پیام از {active_channels} کانال فعال</blockquote>"
-    )
+    return "\n".join([
+        rtl("🗞 <b>گزارش تحلیلی TeleBrief</b>"),
+        "",
+        "<blockquote>" + rtl(
+            f"بازه بررسی: {html.escape(since.strftime('%Y/%m/%d %H:%M'))} تا "
+            f"{html.escape(now.strftime('%Y/%m/%d %H:%M'))}"
+        ) + "\n" + rtl(
+            f"پیام‌های بررسی‌شده: {total_messages} پیام از {active_channels} کانال فعال"
+        ) + "</blockquote>",
+    ])
 
 
 def format_story(story: dict[str, Any], rank: int, category: str) -> str:
     icon = "🤖" if category == "ai" else "🛡"
+    # هر پاراگراف با یک عبارت فارسی آغاز می‌شود تا تلگرام جهت RTL را اشتباه نکند.
     lines = [
-        f"{icon} <b>{rank}. {html.escape(story['title'])}</b>",
-        f"\n<blockquote expandable>{html.escape(story['summary'])}</blockquote>",
+        rtl(f"{icon} <b>{rank}. گزارش: {html.escape(story['title'])}</b>"),
+        "",
+        "<blockquote expandable>" + rtl(
+            f"خلاصه: {html.escape(story['summary'])}"
+        ) + "</blockquote>",
     ]
     if story.get("why_important"):
-        lines.append(f"\n<b>چرا مهم است؟</b>\n{html.escape(story['why_important'])}")
+        lines.extend([
+            "", rtl("<b>چرا مهم است؟</b>"),
+            rtl(f"دلیل اهمیت: {html.escape(story['why_important'])}"),
+        ])
     if story.get("key_points"):
-        lines.append("\n<b>نکات کلیدی</b>")
-        lines.extend(f"• {html.escape(point)}" for point in story["key_points"])
+        lines.extend(["", rtl("<b>نکات کلیدی</b>")])
+        lines.extend(
+            rtl(f"• نکته: {html.escape(point)}") for point in story["key_points"]
+        )
     if story.get("actions"):
-        lines.append("\n<b>اقدام پیشنهادی</b>")
-        lines.extend(f"• {html.escape(action)}" for action in story["actions"])
+        lines.extend(["", rtl("<b>اقدام پیشنهادی</b>")])
+        lines.extend(
+            rtl(f"• اقدام: {html.escape(action)}") for action in story["actions"]
+        )
 
     source_links = []
     for source in story["sources"]:
         channel = html.escape(source["channel"])
         url = f"https://t.me/{source['channel']}/{source['message_id']}"
-        source_links.append(f'<a href="{url}">@{channel}</a>')
-    lines.append("\n<b>منبع:</b> " + " | ".join(source_links))
+        source_links.append(f'<a href="{url}">مشاهده پیام در @{channel}</a>')
+    lines.extend(["", rtl("<b>منبع مستقیم پیام</b>"), rtl(" | ".join(source_links))])
     return "\n".join(lines)
 
 
@@ -379,63 +406,32 @@ async def send_message(chat_id: int | str, text: str) -> None:
     response.raise_for_status()
 
 
-async def send_digest(
-    chat_id: int | str,
-    stories: list[dict[str, Any]],
-    include_date_header: bool,
-    hours: int,
-    total_messages: int,
-    active_channels_count: int,
-    category: str,
-) -> None:
-    if include_date_header:
-        await send_message(
-            chat_id,
-            format_date_header(hours, total_messages, active_channels_count),
-        )
-    if not stories:
-        await send_message(
-            chat_id,
-            "🔍 <b>خبر برجسته‌ای پیدا نشد</b>\n\n"
-            "پیام‌های این بازه بررسی شدند، اما موردی که از فیلتر اهمیت و اعتبار عبور کند وجود نداشت.\n\n"
-            f"{FOOTER}",
-        )
-        return
-    for rank, story in enumerate(stories, start=1):
-        await send_message(chat_id, format_story(story, rank, category))
-        await asyncio.sleep(0.5)
-    await send_message(
-        chat_id,
-        f"✅ <b>پایان گزارش</b>\n\n{len(stories)} خبر مهم انتخاب شد. | {FOOTER}",
-    )
-
-
-async def run_digest(
-    chat_id: int | str,
+async def prepare_digest(
     hours: int = HOURS_WINDOW,
-    include_date_header: bool = False,
     category: str = "security",
-) -> int:
+) -> dict[str, Any]:
+    """همه کانال‌های دسته را می‌خواند و کل خبرهای مهم را برای صفحه‌بندی برمی‌گرداند."""
     validate_config()
     channels = AI_CHANNELS if category == "ai" else SECURITY_CHANNELS
     grouped = await fetch_channel_messages(hours, channels)
     total_messages = sum(len(messages) for messages in grouped.values())
     active_channels = len(grouped)
+    stories = await analyze_messages(grouped, category) if total_messages else []
+    return {
+        "stories": stories,
+        "category": category,
+        "hours": hours,
+        "total_messages": total_messages,
+        "active_channels": active_channels,
+        "configured_channels": len(channels),
+    }
 
-    if total_messages == 0:
-        await send_digest(
-            chat_id, [], include_date_header, hours, 0, 0, category
-        )
-        return 0
 
-    stories = await analyze_messages(grouped, category)
-    await send_digest(
-        chat_id=chat_id,
-        stories=stories,
-        include_date_header=include_date_header,
-        hours=hours,
-        total_messages=total_messages,
-        active_channels_count=active_channels,
-        category=category,
-    )
-    return len(stories)
+async def run_digest(
+    chat_id: int | str | None = None,
+    hours: int = HOURS_WINDOW,
+    include_date_header: bool = False,
+    category: str = "security",
+) -> dict[str, Any]:
+    """نام سازگار با نسخه قبلی؛ ارسال و صفحه‌بندی اکنون در command_bot انجام می‌شود."""
+    return await prepare_digest(hours=hours, category=category)
