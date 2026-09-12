@@ -376,7 +376,8 @@ async def build_and_send_currency_report(
             loading_task.cancel()
             await asyncio.gather(loading_task, return_exceptions=True)
             text = format_currency_digest(
-                result["readings"], result["total_messages"], result["active_channels"]
+                result["readings"], result["total_messages"], result["active_channels"],
+                result.get("contributors"),
             )
             await status_message.edit_text(
                 text,

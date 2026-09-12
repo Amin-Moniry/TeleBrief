@@ -356,7 +356,7 @@ CURRENCY_ITEM_LABELS = {
     "gold18": ("🟣", "قیمت طلای ۱۸ عیار"),
 }
 VALID_EXTRACT_TYPES = {"usd", "gold18", "usdt"}
-TETHER_USD_OFFSET_TOMAN = env_int("TETHER_USD_OFFSET_TOMAN", 0)
+TETHER_USD_OFFSET_TOMAN = env_int("TETHER_USD_OFFSET_TOMAN", 1)
 
 
 def currency_extract_prompt(messages: list[ChannelMessage]) -> str:
@@ -406,19 +406,22 @@ THOUSANDS_UNIT_RE_EARLY = re.compile(r"هزار|ه[\s\.ـ]*تومان")
 
 def extract_currency_readings(
     grouped_messages: dict[str, list[ChannelMessage]]
-) -> dict[str, dict[str, Any]]:
+) -> tuple[dict[str, dict[str, Any]], dict[str, ChannelMessage]]:
     """قیمت دلار/طلا را از متن پیام‌ها استخراج می‌کند و برای هر مورد، تازه‌ترین
     پیام را بر اساس زمان واقعی ارسال آن (نه ادعای مدل) انتخاب می‌کند؛ به این
     ترتیب اگر کانالی دیرتر همان نرخ را منتشر کرده باشد، نسخه‌ی جدیدتر همان
     کانال یا کانال دیگر جایگزین می‌شود.
     قیمت تتر (usdt) هم جدا جمع‌آوری می‌شود: اگر تازه‌ترین به‌روزرسانی موجود
     مربوط به تتر باشد (کانال‌هایی مثل TetherLand معمولاً خیلی سریع‌تر آپدیت
-    می‌کنند)، همان به‌عنوان نزدیک‌ترین برآورد لحظه‌ای دلار جایگزین می‌شود، با
-    یک offset قابل‌تنظیم (TETHER_USD_OFFSET_TOMAN) و علامت‌گذاری شفاف که
-    «برآورد از تتر» است، نه نرخ مستقیم دلار."""
+    می‌کنند)، همان با یک offset قابل‌تنظیم (TETHER_USD_OFFSET_TOMAN) به‌عنوان
+    نزدیک‌ترین برآورد لحظه‌ای دلار جایگزین می‌شود.
+    علاوه بر «برنده» هر قلم، هر کانالی که حداقل یک قلم معتبر داده (حتی اگر
+    برای همان قلم توسط کانال دیگری با داده‌ی تازه‌تر رد شده باشد) در contributors
+    نگه داشته می‌شود تا در فهرست منبع‌ها دیده شود؛ در غیر این‌صورت کانالی که
+    واقعاً بررسی و استفاده شده از قلم می‌افتاد."""
     all_messages = [m for messages in grouped_messages.values() for m in messages]
     if not all_messages:
-        return {}
+        return {}, {}
     by_source = {(m.channel.lower(), m.message_id): m for m in all_messages}
     try:
         raw = call_model_with_fallback(currency_extract_prompt(all_messages))
@@ -428,6 +431,7 @@ def extract_currency_readings(
         ) from exc
     items = raw if isinstance(raw, list) else []
     best: dict[str, dict[str, Any]] = {}
+    contributors: dict[str, ChannelMessage] = {}
     for item in items:
         if not isinstance(item, dict):
             continue
@@ -448,6 +452,9 @@ def extract_currency_readings(
         current = best.get(kind)
         if not current or source.date > current["message"].date:
             best[kind] = {"price": price, "message": source}
+        existing_contrib = contributors.get(source.channel)
+        if not existing_contrib or source.date > existing_contrib.date:
+            contributors[source.channel] = source
 
     usd_direct = best.get("usd")
     usdt_reading = best.pop("usdt", None)
@@ -464,7 +471,7 @@ def extract_currency_readings(
             best["usd"] = usd_direct
     elif usd_direct:
         best["usd"] = usd_direct
-    return best
+    return best, contributors
 
 
 def persian_time_ago(moment: datetime) -> str:
@@ -512,7 +519,10 @@ def normalize_toman_price(raw: str) -> str:
 
 
 def format_currency_digest(
-    readings: dict[str, dict[str, Any]], total_messages: int, active_channels: int
+    readings: dict[str, dict[str, Any]],
+    total_messages: int,
+    active_channels: int,
+    contributors: dict[str, "ChannelMessage"] | None = None,
 ) -> str:
     now = datetime.now(TEHRAN_TZ) if TEHRAN_TZ else datetime.now()
     header = rtl("💵 <b>نرخ لحظه‌ای دلار و طلا | TeleBrief</b>")
@@ -530,7 +540,6 @@ def format_currency_digest(
         ])
 
     price_lines: list[str] = []
-    source_links: list[str] = []
     for key, (icon, title) in CURRENCY_ITEM_LABELS.items():
         entry = readings.get(key)
         if not entry:
@@ -539,13 +548,19 @@ def format_currency_digest(
         message = entry["message"]
         price = html.escape(normalize_toman_price(entry["price"]))
         age = persian_time_ago(message.date)
-        note = rtl(" (برآورد از قیمت تتر)") if entry.get("estimated_from_tether") else ""
         price_lines.append(
-            rtl(f"{icon} {title}: ") + f"<code>{price}</code>" + note + "\n"
+            rtl(f"{icon} {title}: ") + f"<code>{price}</code>" + "\n"
             + rtl(f"🕒 {age}")
         )
-        channel = html.escape(message.channel)
-        source_links.append(f'<a href="{message.url}">مشاهده @{channel}</a>')
+
+    # هر کانالی که واقعاً داده‌ای معتبر داده (نه فقط کانال «برنده» هر قلم)
+    # اینجا لینک می‌گیرد؛ در غیر این‌صورت کانالی که بررسی و استفاده شده از
+    # فهرست منبع‌ها می‌افتاد و عدد «کانال بررسی‌شده» با تعداد لینک‌ها جور درنمی‌آمد.
+    contributors = contributors or {}
+    source_links = [
+        f'<a href="{msg.url}">مشاهده @{html.escape(msg.channel)}</a>'
+        for msg in sorted(contributors.values(), key=lambda m: m.date, reverse=True)
+    ]
 
     lines = [header, "", update_line, "", "\n\n".join(price_lines)]
     if source_links:
@@ -572,11 +587,12 @@ async def prepare_currency_digest() -> dict[str, Any]:
     grouped = await fetch_channel_messages(CURRENCY_HOURS_WINDOW, CURRENCY_CHANNELS)
     total_messages = sum(len(messages) for messages in grouped.values())
     active_channels = len(grouped)
-    readings = (
-        await asyncio.to_thread(extract_currency_readings, grouped) if total_messages else {}
+    readings, contributors = (
+        await asyncio.to_thread(extract_currency_readings, grouped) if total_messages else ({}, {})
     )
     return {
         "readings": readings,
+        "contributors": contributors,
         "total_messages": total_messages,
         "active_channels": active_channels,
         "configured_channels": len(CURRENCY_CHANNELS),
