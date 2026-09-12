@@ -355,25 +355,53 @@ CURRENCY_ITEM_LABELS = {
     "usd": ("🟣", "قیمت دلار آمریکا"),
     "gold18": ("🟣", "قیمت طلای ۱۸ عیار"),
 }
+VALID_EXTRACT_TYPES = {"usd", "gold18", "usdt"}
+TETHER_USD_OFFSET_TOMAN = env_int("TETHER_USD_OFFSET_TOMAN", 0)
 
 
 def currency_extract_prompt(messages: list[ChannelMessage]) -> str:
     sources = "\n\n".join(message.prompt_block() for message in messages)
-    return f"""این پیام‌ها از کانال‌های نرخ ارز و طلای تلگرام هستند. فقط دو قلم زیر را از هر پیام دربیاور و چیز دیگری را برنگردان:
+    return f"""این پیام‌ها از کانال‌های نرخ ارز و طلای تلگرام هستند. فقط سه قلم زیر را از هر پیام دربیاور و چیز دیگری را برنگردان:
 1) usd → قیمت دلار آمریکا (نرخ آزاد بازار)، به تومان
 2) gold18 → قیمت طلای ۱۸ عیار (طلای معمولی)، به تومان
+3) usdt → قیمت تتر (Tether/USDT) در بازار ایران، به تومان
 
-هر رمزارز (بیت‌کوین، اتریوم، تتر، سولانا، ریپل و امثال آن)، هر ارز دیگر جز دلار (یورو، درهم و ...)، سکه، طلای ۲۴ عیار و انس جهانی طلا را کاملاً نادیده بگیر؛ این‌ها را در خروجی نیاور.
-اگر پیامی هیچ‌کدام از این دو قلم را نداشت، آن پیام را کامل رد کن.
+هر رمزارز دیگر جز تتر (بیت‌کوین، اتریوم، سولانا، ریپل و امثال آن)، هر ارز دیگر جز دلار (یورو، درهم و ...)، سکه، طلای ۲۴ عیار و انس جهانی طلا را کاملاً نادیده بگیر؛ این‌ها را در خروجی نیاور.
+اگر پیامی هیچ‌کدام از این سه قلم را نداشت، آن پیام را کامل رد کن.
 مقدار price را دقیقاً همان‌طور که در متن پیام نوشته شده برگردان (همراه واحد: تومان یا هزار تومان)، هیچ عددی را گرد نکن، حدس نزن و از پیام‌های دیگر استنتاج نکن.
 خروجی فقط آرایه JSON با این ساختار باشد؛ اگر هیچ‌کدام در کل پیام‌ها پیدا نشد [] بده:
 [
   {{"type": "usd", "price": "متن دقیق قیمت همراه واحد", "channel": "نام کانال بدون @", "message_id": 123}}
 ]
-هر پیام می‌تواند صفر، یک یا هر دو مورد را داشته باشد؛ به ازای هر مورد پیداشده یک آیتم جدا در آرایه بگذار.
+هر پیام می‌تواند صفر، یک، دو یا هر سه مورد را داشته باشد؛ به ازای هر مورد پیداشده یک آیتم جدا در آرایه بگذار.
 
 منابع:
 {sources}"""
+
+
+def parse_toman_amount(raw: str) -> int | None:
+    """مقدار عددی تومانی را از متن آزاد استخراج می‌کند (بدون فرمت‌کردن)."""
+    text = str(raw or "").strip().translate(PERSIAN_DIGITS_MAP_EARLY)
+    match = re.search(r"[\d,\.]*\d", text)
+    if not match:
+        return None
+    number_str = match.group(0).replace(",", "")
+    if "." in number_str:
+        integer_part, _, frac_part = number_str.partition(".")
+        number_str = integer_part + frac_part if len(frac_part) == 3 else integer_part
+    try:
+        value = int(number_str)
+    except ValueError:
+        return None
+    if THOUSANDS_UNIT_RE_EARLY.search(text):
+        value *= 1000
+    return value
+
+
+PERSIAN_DIGITS_MAP_EARLY = str.maketrans(
+    "۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789"
+)
+THOUSANDS_UNIT_RE_EARLY = re.compile(r"هزار|ه[\s\.ـ]*تومان")
 
 
 def extract_currency_readings(
@@ -382,7 +410,12 @@ def extract_currency_readings(
     """قیمت دلار/طلا را از متن پیام‌ها استخراج می‌کند و برای هر مورد، تازه‌ترین
     پیام را بر اساس زمان واقعی ارسال آن (نه ادعای مدل) انتخاب می‌کند؛ به این
     ترتیب اگر کانالی دیرتر همان نرخ را منتشر کرده باشد، نسخه‌ی جدیدتر همان
-    کانال یا کانال دیگر جایگزین می‌شود."""
+    کانال یا کانال دیگر جایگزین می‌شود.
+    قیمت تتر (usdt) هم جدا جمع‌آوری می‌شود: اگر تازه‌ترین به‌روزرسانی موجود
+    مربوط به تتر باشد (کانال‌هایی مثل TetherLand معمولاً خیلی سریع‌تر آپدیت
+    می‌کنند)، همان به‌عنوان نزدیک‌ترین برآورد لحظه‌ای دلار جایگزین می‌شود، با
+    یک offset قابل‌تنظیم (TETHER_USD_OFFSET_TOMAN) و علامت‌گذاری شفاف که
+    «برآورد از تتر» است، نه نرخ مستقیم دلار."""
     all_messages = [m for messages in grouped_messages.values() for m in messages]
     if not all_messages:
         return {}
@@ -399,7 +432,7 @@ def extract_currency_readings(
         if not isinstance(item, dict):
             continue
         kind = str(item.get("type", "")).strip().lower()
-        if kind not in CURRENCY_ITEM_LABELS:
+        if kind not in VALID_EXTRACT_TYPES:
             continue
         price = clean_model_text(item.get("price", ""))
         if not price:
@@ -415,6 +448,22 @@ def extract_currency_readings(
         current = best.get(kind)
         if not current or source.date > current["message"].date:
             best[kind] = {"price": price, "message": source}
+
+    usd_direct = best.get("usd")
+    usdt_reading = best.pop("usdt", None)
+    if usdt_reading and (not usd_direct or usdt_reading["message"].date > usd_direct["message"].date):
+        amount = parse_toman_amount(usdt_reading["price"])
+        if amount is not None:
+            adjusted = amount + TETHER_USD_OFFSET_TOMAN
+            best["usd"] = {
+                "price": f"{adjusted:,} تومان",
+                "message": usdt_reading["message"],
+                "estimated_from_tether": True,
+            }
+        elif usd_direct:
+            best["usd"] = usd_direct
+    elif usd_direct:
+        best["usd"] = usd_direct
     return best
 
 
@@ -490,8 +539,9 @@ def format_currency_digest(
         message = entry["message"]
         price = html.escape(normalize_toman_price(entry["price"]))
         age = persian_time_ago(message.date)
+        note = rtl(" (برآورد از قیمت تتر)") if entry.get("estimated_from_tether") else ""
         price_lines.append(
-            rtl(f"{icon} {title}: ") + f"<code>{price}</code>" + "\n"
+            rtl(f"{icon} {title}: ") + f"<code>{price}</code>" + note + "\n"
             + rtl(f"🕒 {age}")
         )
         channel = html.escape(message.channel)
