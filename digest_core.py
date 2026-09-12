@@ -42,7 +42,7 @@ XKIRO_MODEL = env_str("DEFAULT_MODEL", "deepseek/deepseek-v4-pro")
 HOURS_WINDOW = env_int("HOURS_WINDOW", 24)
 MAX_MESSAGES_PER_CHANNEL = env_int("MAX_MESSAGES_PER_CHANNEL", 500)
 MAX_STORIES = env_int("MAX_STORIES", 100)
-BATCH_CHAR_LIMIT = env_int("BATCH_CHAR_LIMIT", 45_000)
+BATCH_CHAR_LIMIT = env_int("BATCH_CHAR_LIMIT", 22_000)
 
 SECURITY_CHANNELS = [
     "cybersecurityexperts", "thehackernews", "cibsecurity",
@@ -71,7 +71,7 @@ class ChannelMessage:
         return f"https://t.me/{self.channel}/{self.message_id}"
 
     def prompt_block(self) -> str:
-        safe_text = self.text[:3500]
+        safe_text = self.text[:2200]
         return (
             f"SOURCE channel={self.channel} id={self.message_id} "
             f"date={self.date.isoformat()} views={self.views} forwards={self.forwards}\n"
@@ -198,6 +198,8 @@ def call_model(prompt: str, temperature: float = 0.15) -> Any:
                 },
                 timeout=180,
             )
+            if not response.ok:
+                logger.warning("مدل پاسخ %s داد: %s", response.status_code, response.text[:500])
             response.raise_for_status()
             raw = response.json()["choices"][0]["message"]["content"]
             return extract_json(raw)
@@ -210,10 +212,11 @@ def call_model(prompt: str, temperature: float = 0.15) -> Any:
     raise RuntimeError("مدل پس از سه تلاش پاسخ معتبر نداد") from last_error
 
 
-def shortlist_prompt(messages: list[ChannelMessage], category: str) -> str:
-    field = "هوش مصنوعی" if category == "ai" else "امنیت سایبری"
+def shortlist_prompt(messages: list[ChannelMessage], category: str, lang: str = "fa") -> str:
+    field = "AI" if category == "ai" else "cybersecurity" if lang == "en" else ("هوش مصنوعی" if category == "ai" else "امنیت سایبری")
+    output_language = "English" if lang == "en" else "Persian"
     sources = "\n\n".join(message.prompt_block() for message in messages)
-    return f"""این یک مرحله غربال‌گری عمیق خبر در حوزه {field} است.
+    return f"""This is a deep news screening stage for {field}. Write every output field in {output_language}.
 همه منابع زیر را دقیق بخوان. تبلیغ، بازنشر تکراری، شایعه بی‌سند، متن انگیزشی و خبر کم‌اثر را حذف کن.
 تمام رویدادهای واقعاً مهم را انتخاب کن (حداکثر 30 مورد برای هر دسته ورودی و بدون حذف مورد مهم). اهمیت را با تازگی، اثر عملی، اعتبار منبع، گستره اثر و شواهد بسنج.
 اگر چند پیام درباره یک رویدادند، آن‌ها را یک مورد کن و همه شناسه‌های منبع مرتبط را نگه دار.
@@ -235,9 +238,10 @@ score عدد صحیح 0 تا 100 است. اگر چیزی مهم نیست، [] ب
 {sources}"""
 
 
-def merge_prompt(candidates: list[dict[str, Any]], category: str) -> str:
-    field = "هوش مصنوعی" if category == "ai" else "امنیت سایبری"
-    return f"""نامزدهای خبری چند مرحله غربال‌گری در حوزه {field} در ادامه آمده‌اند.
+def merge_prompt(candidates: list[dict[str, Any]], category: str, lang: str = "fa") -> str:
+    field = "AI" if category == "ai" else "cybersecurity" if lang == "en" else ("هوش مصنوعی" if category == "ai" else "امنیت سایبری")
+    output_language = "English" if lang == "en" else "Persian"
+    return f"""Review these candidate stories in {field}. Return every field in {output_language}.
 آن‌ها را دوباره با سخت‌گیری بررسی کن: موارد مشابه را ادغام کن، ادعاهای ضعیف را پایین ببر و حداکثر {MAX_STORIES} خبر مهم را به ترتیب score نزولی برگردان.
 فارسی را روان، حرفه‌ای و بدون اغراق بنویس. title، summary، why_important، key_points، actions، score و sources را حفظ کن.
 منابع ساختگی ممنوع است و sources فقط باید از ورودی باشد. خروجی فقط آرایه JSON معتبر باشد.
@@ -291,7 +295,7 @@ def normalize_stories(data: Any, valid_sources: set[tuple[str, int]]) -> list[di
 
 
 async def analyze_messages(
-    grouped_messages: dict[str, list[ChannelMessage]], category: str
+    grouped_messages: dict[str, list[ChannelMessage]], category: str, lang: str = "fa"
 ) -> list[dict[str, Any]]:
     all_messages = [m for messages in grouped_messages.values() for m in messages]
     valid_sources = {(m.channel.lower(), m.message_id) for m in all_messages}
@@ -301,7 +305,7 @@ async def analyze_messages(
     async def analyze_batch(batch: list[ChannelMessage]) -> Any:
         async with semaphore:
             return await asyncio.to_thread(
-                call_model, shortlist_prompt(batch, category)
+                call_model, shortlist_prompt(batch, category, lang)
             )
 
     tasks = [analyze_batch(batch) for batch in batches]
@@ -318,9 +322,14 @@ async def analyze_messages(
 
     candidates = sorted(
         candidates, key=lambda item: item.get("score", 0), reverse=True
-    )[:120]
-    merged = await asyncio.to_thread(call_model, merge_prompt(candidates, category))
-    return normalize_stories(merged, valid_sources)[:MAX_STORIES]
+    )[:40]
+    try:
+        merged = await asyncio.to_thread(call_model, merge_prompt(candidates, category, lang))
+        return normalize_stories(merged, valid_sources)[:MAX_STORIES]
+    except Exception as exc:
+        # اگر مرحله ادغام سرویس مدل 500 داد، گزارش نباید صفر شود.
+        logger.error("ادغام ناموفق بود؛ نامزدهای معتبر استفاده می‌شوند: %s", exc)
+        return candidates[:MAX_STORIES]
 
 
 def rtl(value: str) -> str:
@@ -328,23 +337,23 @@ def rtl(value: str) -> str:
     return "\u200f" + value
 
 
-def format_date_header(hours: int, total_messages: int, active_channels: int) -> str:
+def format_date_header(hours: int, total_messages: int, active_channels: int, lang: str = "fa") -> str:
     now = datetime.now(TEHRAN_TZ) if TEHRAN_TZ else datetime.now()
     since = now - timedelta(hours=hours)
+    if lang == "en":
+        return ("🗞 <b>TeleBrief Intelligence Briefing</b>\n\n"
+                f"<blockquote>Window: {since.strftime('%Y/%m/%d %H:%M')} to {now.strftime('%Y/%m/%d %H:%M')}\n"
+                f"Scanned: {total_messages} messages from {active_channels} active channels</blockquote>")
     return "\n".join([
-        rtl("🗞 <b>گزارش تحلیلی TeleBrief</b>"),
-        "",
-        "<blockquote>" + rtl(
-            f"بازه بررسی: {html.escape(since.strftime('%Y/%m/%d %H:%M'))} تا "
-            f"{html.escape(now.strftime('%Y/%m/%d %H:%M'))}"
-        ) + "\n" + rtl(
-            f"پیام‌های بررسی‌شده: {total_messages} پیام از {active_channels} کانال فعال"
-        ) + "</blockquote>",
+        rtl("🗞 <b>گزارش تحلیلی TeleBrief</b>"), "",
+        "<blockquote>" + rtl(f"بازه بررسی: {html.escape(since.strftime('%Y/%m/%d %H:%M'))} تا {html.escape(now.strftime('%Y/%m/%d %H:%M'))}") + "\n" + rtl(f"پیام‌های بررسی‌شده: {total_messages} پیام از {active_channels} کانال فعال") + "</blockquote>",
     ])
 
 
-def format_story(story: dict[str, Any], rank: int, category: str) -> str:
+def format_story(story: dict[str, Any], rank: int, category: str, lang: str = "fa") -> str:
     icon = "🤖" if category == "ai" else "🛡"
+    if lang == "en":
+        return format_story_en(story, rank, category)
     # هر پاراگراف با یک عبارت فارسی آغاز می‌شود تا تلگرام جهت RTL را اشتباه نکند.
     lines = [
         rtl(f"{icon} <b>{rank}. گزارش: {html.escape(story['title'])}</b>"),
@@ -376,6 +385,24 @@ def format_story(story: dict[str, Any], rank: int, category: str) -> str:
         source_links.append(f'<a href="{url}">مشاهده پیام در @{channel}</a>')
     lines.extend(["", rtl("<b>منبع مستقیم پیام</b>"), rtl(" | ".join(source_links))])
     return "\n".join(lines)
+
+
+def format_story_en(story: dict[str, Any], rank: int, category: str) -> str:
+    icon = "🤖" if category == "ai" else "🛡"
+    lines = [f"{icon} <b>{rank}. Report: {html.escape(story['title'])}</b>", "",
+             f"<blockquote expandable>Summary: {html.escape(story['summary'])}</blockquote>"]
+    if story.get("why_important"):
+        lines.extend(["", "<b>Why it matters</b>", html.escape(story["why_important"])])
+    if story.get("key_points"):
+        lines.extend(["", "<b>Key points</b>"] + [f"• {html.escape(x)}" for x in story["key_points"]])
+    if story.get("actions"):
+        lines.extend(["", "<b>Recommended action</b>"] + [f"• {html.escape(x)}" for x in story["actions"]])
+    links = []
+    for source in story["sources"]:
+        channel = html.escape(source["channel"])
+        links.append(f'<a href="https://t.me/{source["channel"]}/{source["message_id"]}">View @{channel}</a>')
+    lines.extend(["", "<b>Direct source</b>", " | ".join(links)])
+    return "\\n".join(lines)
 
 
 def strip_html(value: str) -> str:
@@ -410,6 +437,7 @@ async def prepare_digest(
     hours: int = HOURS_WINDOW,
     category: str = "security",
     extra_channels: list[str] | None = None,
+    lang: str = "fa",
 ) -> dict[str, Any]:
     """همه کانال‌های دسته را می‌خواند و کل خبرهای مهم را برای صفحه‌بندی برمی‌گرداند."""
     validate_config()
@@ -419,7 +447,7 @@ async def prepare_digest(
     grouped = await fetch_channel_messages(hours, channels)
     total_messages = sum(len(messages) for messages in grouped.values())
     active_channels = len(grouped)
-    stories = await analyze_messages(grouped, category) if total_messages else []
+    stories = await analyze_messages(grouped, category, lang) if total_messages else []
     return {
         "stories": stories,
         "category": category,

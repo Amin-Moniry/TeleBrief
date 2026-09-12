@@ -150,6 +150,9 @@ HELP_TEXT = (
     "<blockquote>برای هر خبر، روی «مشاهده پیام اصلی» بزن تا مستقیماً به منبع تلگرام بروی.</blockquote>"
 )
 
+ABOUT_TEXT_EN = ("ℹ️ <b>About TeleBrief</b>\n\nAn AI news intelligence bot for ranked briefings, source links and deep channel scanning.")
+HELP_TEXT_EN = ("📖 <b>TeleBrief Help</b>\n\nChoose a category and time window. The bot scans every configured channel, removes noise, merges duplicates and sends 10 stories at a time. Use <b>More stories</b> for the next page.")
+
 ABOUT_TEXT = (
     "ℹ️ <b>درباره TeleBrief</b>\n\n"
     "یک خبرخوان تحلیلی فارسی برای حوزه‌های <b>هوش مصنوعی</b> و <b>امنیت سایبری</b>. "
@@ -217,7 +220,7 @@ async def send_story_page(
     for rank, story in enumerate(stories[start:end], start=start + 1):
         await context.bot.send_message(
             chat_id=chat_id,
-            text=format_story(story, rank, cache["category"]),
+            text=format_story(story, rank, cache["category"], cache.get("lang", "fa")),
             parse_mode=ParseMode.HTML,
             disable_web_page_preview=True,
         )
@@ -227,39 +230,24 @@ async def send_story_page(
 
 
 LOADING_FRAMES = ("⣾", "⣽", "⣻", "⢿")
-LOADING_STAGES = (
-    "در حال اتصال به کانال‌های منتخب",
-    "در حال جمع‌آوری پیام‌های بازه زمانی",
-    "در حال حذف تبلیغات و پیام‌های تکراری",
-    "در حال خواندن عمیق محتوای پیام‌ها",
-    "در حال مقایسه و ادغام خبرهای مشابه",
-    "در حال رتبه‌بندی مهم‌ترین خبرها",
-)
 
 
 async def animate_loading(status_message, category_name: str, hours: int) -> None:
-    """پیام وضعیت را بدون شلوغ‌کردن چت، زنده و متحرک نگه می‌دارد."""
+    """فقط اسپینر را سریع عوض می‌کند؛ متن پیام ثابت می‌ماند."""
     frame_index = 0
-    stage_index = 0
     try:
         while True:
-            frame = LOADING_FRAMES[frame_index % len(LOADING_FRAMES)]
-            stage = LOADING_STAGES[stage_index % len(LOADING_STAGES)]
             await status_message.edit_text(
-                f"{frame} <b>هوش مصنوعی در حال بررسی {category_name} است...</b>\n\n"
-                f"{stage}\n"
-                f"<blockquote expandable>بازه انتخاب‌شده: {hours} ساعت اخیر\n"
-                "هنوز در حال جست‌وجو بین منابع هستم؛ خروجی که ارزش خواندن داشته باشد می‌فرستم.</blockquote>",
+                f"{LOADING_FRAMES[frame_index % len(LOADING_FRAMES)]} <b>در حال جست‌وجوی عمیق {html.escape(category_name)}...</b>\n\n"
+                f"پیام‌های {hours} ساعت اخیر در حال بررسی هستند.",
                 parse_mode=ParseMode.HTML,
             )
             frame_index += 1
-            if frame_index % 3 == 0:
-                stage_index += 1
-            await asyncio.sleep(2.2)
+            await asyncio.sleep(0.8)
     except asyncio.CancelledError:
         return
     except Exception:
-        logger.debug("به‌روزرسانی انیمیشن وضعیت متوقف شد", exc_info=True)
+        logger.debug("spinner stopped", exc_info=True)
 
 
 async def build_and_send_report(
@@ -270,7 +258,8 @@ async def build_and_send_report(
     hours: int,
     status_message,
 ) -> None:
-    category_name = "هوش مصنوعی" if category == "ai" else "امنیت سایبری"
+    lang = user_prefs(user_id).get("language", "fa")
+    category_name = ("AI" if category == "ai" else "Cyber Security") if lang == "en" else ("هوش مصنوعی" if category == "ai" else "امنیت سایبری")
     lock = user_locks[user_id]
     async with lock:
         loading_task = asyncio.create_task(
@@ -285,16 +274,15 @@ async def build_and_send_report(
         )
         try:
             extra_channels = user_prefs(user_id).get("extra_channels", [])
-            result = await prepare_digest(hours=hours, category=category, extra_channels=extra_channels)
+            result = await prepare_digest(hours=hours, category=category, extra_channels=extra_channels, lang=lang)
             loading_task.cancel()
             await asyncio.gather(loading_task, return_exceptions=True)
             stories = result["stories"]
-            cache = {"stories": stories, "category": category, "offset": 0}
+            cache = {"stories": stories, "category": category, "lang": lang, "offset": 0}
             context.user_data["digest_cache"] = cache
             await status_message.edit_text(
-                format_date_header(hours, result["total_messages"], result["active_channels"])
-                + f"\n\n<b>وضعیت کانال‌ها:</b> هر {result['configured_channels']} کانال پیمایش شد؛ "
-                + f"{result['active_channels']} کانال در این بازه پیام داشت.",
+                format_date_header(hours, result["total_messages"], result["active_channels"], lang)
+                + ((f"\n\n<b>Channels:</b> scanned all {result['configured_channels']} configured channels; {result['active_channels']} had messages." ) if lang == "en" else (f"\n\n<b>وضعیت کانال‌ها:</b> هر {result['configured_channels']} کانال پیمایش شد؛ {result['active_channels']} کانال در این بازه پیام داشت.")),
                 parse_mode=ParseMode.HTML,
                 disable_web_page_preview=True,
             )
@@ -302,7 +290,7 @@ async def build_and_send_report(
                 context.user_data.pop("digest_cache", None)
                 await context.bot.send_message(
                     chat_id=chat_id,
-                    text="🔍 <b>خبر مهمی پیدا نشد</b>\n\nتمام پیام‌های این بازه بررسی شدند.",
+                    text=("🔍 <b>No important stories found</b>\n\nAll messages in this window were scanned." if lang == "en" else "🔍 <b>خبر مهمی پیدا نشد</b>\n\nتمام پیام‌های این بازه بررسی شدند."),
                     parse_mode=ParseMode.HTML,
                     reply_markup=back_keyboard(),
                 )
@@ -310,8 +298,7 @@ async def build_and_send_report(
             sent, remaining = await send_story_page(context, chat_id, cache)
             await context.bot.send_message(
                 chat_id=chat_id,
-                text=(f"✅ <b>{sent} خبر اول، جداگانه ارسال شد</b>\n\n"
-                      + (f"هنوز {remaining} خبر مهم باقی مانده." if remaining else "همه خبرهای مهم ارسال شدند.")),
+                text=((f"✅ <b>{sent} first stories sent separately</b>\n\n" + (f"{remaining} important stories remain." if remaining else "All important stories were sent.")) if lang == "en" else (f"✅ <b>{sent} خبر اول، جداگانه ارسال شد</b>\n\n" + (f"هنوز {remaining} خبر مهم باقی مانده." if remaining else "همه خبرهای مهم ارسال شدند."))),
                 parse_mode=ParseMode.HTML,
                 reply_markup=more_keyboard(remaining),
             )
@@ -404,12 +391,12 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return
     if data == "page:help":
         await query.edit_message_text(
-            HELP_TEXT, parse_mode=ParseMode.HTML, reply_markup=back_keyboard()
+            (HELP_TEXT_EN if user_prefs(user.id).get("language") == "en" else HELP_TEXT), parse_mode=ParseMode.HTML, reply_markup=back_keyboard()
         )
         return
     if data == "page:about":
         await query.edit_message_text(
-            ABOUT_TEXT, parse_mode=ParseMode.HTML, reply_markup=back_keyboard()
+            (ABOUT_TEXT_EN if user_prefs(user.id).get("language") == "en" else ABOUT_TEXT), parse_mode=ParseMode.HTML, reply_markup=back_keyboard()
         )
         return
     if data == "digest:more":
