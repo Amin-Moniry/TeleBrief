@@ -17,6 +17,7 @@ from digest_core import (
     HOURS_WINDOW,
 )
 
+print("DEBUG len(BOT_TOKEN):", len(BOT_TOKEN))
 
 # ============ مدیریت وضعیت کاربران ============
 
