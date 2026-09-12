@@ -316,12 +316,20 @@ async def build_and_send_report(
             )
             if not remaining:
                 context.user_data.pop("digest_cache", None)
-        except Exception:
+        except Exception as exc:
             loading_task.cancel()
             await asyncio.gather(loading_task, return_exceptions=True)
             logger.exception("ساخت گزارش برای کاربر %s ناموفق بود", user_id)
+            is_model_outage = "سرویس مدل" in str(exc) or "هیچ دسته‌ای" in str(exc)
+            message = (
+                "⚠️ <b>سرویس تحلیل هوش مصنوعی پاسخ نمی‌دهد</b>\n\n"
+                "پیام‌ها دریافت شدند، اما سرویس مدل بعد از چند تلاش خطای موقت داد؛ "
+                "برای جلوگیری از گزارش خام یا ساختگی، چیزی منتشر نشد."
+                if is_model_outage else
+                "⚠️ <b>ساخت گزارش کامل نشد</b>\n\nچند دقیقه دیگر دوباره امتحان کن."
+            )
             await status_message.edit_text(
-                "⚠️ <b>ساخت گزارش کامل نشد</b>\n\nچند دقیقه دیگر دوباره امتحان کن.",
+                message,
                 parse_mode=ParseMode.HTML,
                 reply_markup=back_keyboard(),
             )
