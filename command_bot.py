@@ -13,7 +13,8 @@ from telegram.ext import (
 )
 
 from digest_core import (
-    BOT_TOKEN, HOURS_WINDOW, format_date_header, format_story, prepare_digest
+    AI_CHANNELS, SECURITY_CHANNELS, BOT_TOKEN, HOURS_WINDOW,
+    format_date_header, format_story, prepare_digest,
 )
 
 APP_NAME = "TeleBrief"
@@ -21,6 +22,7 @@ STATE_FILE = Path("bot_state.json")
 logger = logging.getLogger(__name__)
 user_locks: dict[int, asyncio.Lock] = defaultdict(asyncio.Lock)
 PAGE_SIZE = 10
+SUPPORTED_LANGUAGES = {"fa": "فارسی", "en": "English"}
 
 
 def load_state() -> dict:
@@ -58,17 +60,44 @@ def touch_user(user_id: int) -> bool:
     return is_new
 
 
-def main_menu_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("🤖 هوش مصنوعی", callback_data="digest:ai"),
-            InlineKeyboardButton("🛡 امنیت سایبری", callback_data="digest:security"),
-        ],
-        [
-            InlineKeyboardButton("📖 راهنما", callback_data="page:help"),
-            InlineKeyboardButton("ℹ️ درباره ربات", callback_data="page:about"),
-        ],
-    ])
+def user_prefs(user_id: int) -> dict:
+    state = load_state()
+    entry = state.setdefault("users", {}).setdefault(str(user_id), {})
+    entry.setdefault("language", "fa")
+    entry.setdefault("extra_channels", [])
+    return entry
+
+
+def update_user_prefs(user_id: int, **changes) -> dict:
+    state = load_state()
+    entry = state.setdefault("users", {}).setdefault(str(user_id), {})
+    entry.update(changes)
+    save_state(state)
+    return entry
+
+
+def safe_channel(value: str) -> str | None:
+    value = value.strip().replace("https://t.me/", "").replace("http://t.me/", "")
+    value = value.split("/", 1)[0].strip().lstrip("@").strip()
+    if not value or len(value) > 64 or not value.replace("_", "").isalnum():
+        return None
+    return value
+
+
+def language_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([[InlineKeyboardButton("🇮🇷 فارسی", callback_data="lang:fa"), InlineKeyboardButton("🇬🇧 English", callback_data="lang:en")], [InlineKeyboardButton("🏠 منوی اصلی", callback_data="page:menu")]])
+
+
+def channels_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([[InlineKeyboardButton("➕ افزودن کانال / Add channel", callback_data="channel:add")], [InlineKeyboardButton("🏠 منوی اصلی", callback_data="page:menu")]])
+
+
+def main_menu_keyboard(lang: str = "fa") -> InlineKeyboardMarkup:
+    if lang == "en":
+        rows = [[InlineKeyboardButton("🤖 AI Intelligence", callback_data="digest:ai"), InlineKeyboardButton("🛡 Cyber Security", callback_data="digest:security")], [InlineKeyboardButton("📚 My Channels", callback_data="page:channels"), InlineKeyboardButton("🌐 Language", callback_data="page:language")], [InlineKeyboardButton("📖 Help", callback_data="page:help"), InlineKeyboardButton("ℹ️ About", callback_data="page:about")]]
+    else:
+        rows = [[InlineKeyboardButton("🤖 هوش مصنوعی", callback_data="digest:ai"), InlineKeyboardButton("🛡 امنیت سایبری", callback_data="digest:security")], [InlineKeyboardButton("📚 کانال‌های من", callback_data="page:channels"), InlineKeyboardButton("🌐 زبان / Language", callback_data="page:language")], [InlineKeyboardButton("📖 راهنما", callback_data="page:help"), InlineKeyboardButton("ℹ️ درباره ربات", callback_data="page:about")]]
+    return InlineKeyboardMarkup(rows)
 
 
 
@@ -93,8 +122,11 @@ def back_keyboard() -> InlineKeyboardMarkup:
     ])
 
 
-def welcome_text(first_name: str, is_new: bool) -> str:
-    name = html.escape(first_name or "دوست عزیز")
+def welcome_text(first_name: str, is_new: bool, lang: str = "fa") -> str:
+    name = html.escape(first_name or ("friend" if lang == "en" else "دوست عزیز"))
+    if lang == "en":
+        return f"👋 <b>Hello {name}!</b>\n\nI am <b>{APP_NAME}</b>, your AI news intelligence bot. I scan configured channels, remove noise and send ranked stories with direct sources.\n\n<blockquote>Default window: {HOURS_WINDOW} hours</blockquote>\n\nChoose a briefing:"
+
     greeting = "خوش اومدی" if is_new else "خوش برگشتی"
     return (
         f"👋 <b>سلام {name}، {greeting}!</b>\n\n"
@@ -129,20 +161,22 @@ ABOUT_TEXT = (
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
     is_new = touch_user(user.id)
+    lang = user_prefs(user.id).get("language", "fa")
     await update.effective_message.reply_text(
-        welcome_text(user.first_name, is_new),
+        welcome_text(user.first_name, is_new, lang),
         parse_mode=ParseMode.HTML,
-        reply_markup=main_menu_keyboard(),
+        reply_markup=main_menu_keyboard(lang),
         disable_web_page_preview=True,
     )
 
 
 async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     touch_user(update.effective_user.id)
+    lang = user_prefs(update.effective_user.id).get("language", "fa")
+    text = "🗞 <b>Choose your briefing</b>" if lang == "en" else "🗞 <b>چه گزارشی می‌خوای؟</b>\n\nدسته موردنظرت را انتخاب کن:"
     await update.effective_message.reply_text(
-        "🗞 <b>چه گزارشی می‌خوای؟</b>\n\nدسته موردنظرت را انتخاب کن:",
-        parse_mode=ParseMode.HTML,
-        reply_markup=main_menu_keyboard(),
+        text, parse_mode=ParseMode.HTML,
+        reply_markup=main_menu_keyboard(lang),
     )
 
 
@@ -192,6 +226,42 @@ async def send_story_page(
     return end - start, len(stories) - end
 
 
+LOADING_FRAMES = ("⣾", "⣽", "⣻", "⢿")
+LOADING_STAGES = (
+    "در حال اتصال به کانال‌های منتخب",
+    "در حال جمع‌آوری پیام‌های بازه زمانی",
+    "در حال حذف تبلیغات و پیام‌های تکراری",
+    "در حال خواندن عمیق محتوای پیام‌ها",
+    "در حال مقایسه و ادغام خبرهای مشابه",
+    "در حال رتبه‌بندی مهم‌ترین خبرها",
+)
+
+
+async def animate_loading(status_message, category_name: str, hours: int) -> None:
+    """پیام وضعیت را بدون شلوغ‌کردن چت، زنده و متحرک نگه می‌دارد."""
+    frame_index = 0
+    stage_index = 0
+    try:
+        while True:
+            frame = LOADING_FRAMES[frame_index % len(LOADING_FRAMES)]
+            stage = LOADING_STAGES[stage_index % len(LOADING_STAGES)]
+            await status_message.edit_text(
+                f"{frame} <b>هوش مصنوعی در حال بررسی {category_name} است...</b>\n\n"
+                f"{stage}\n"
+                f"<blockquote expandable>بازه انتخاب‌شده: {hours} ساعت اخیر\n"
+                "هنوز در حال جست‌وجو بین منابع هستم؛ خروجی که ارزش خواندن داشته باشد می‌فرستم.</blockquote>",
+                parse_mode=ParseMode.HTML,
+            )
+            frame_index += 1
+            if frame_index % 3 == 0:
+                stage_index += 1
+            await asyncio.sleep(2.2)
+    except asyncio.CancelledError:
+        return
+    except Exception:
+        logger.debug("به‌روزرسانی انیمیشن وضعیت متوقف شد", exc_info=True)
+
+
 async def build_and_send_report(
     context: ContextTypes.DEFAULT_TYPE,
     chat_id: int,
@@ -203,6 +273,10 @@ async def build_and_send_report(
     category_name = "هوش مصنوعی" if category == "ai" else "امنیت سایبری"
     lock = user_locks[user_id]
     async with lock:
+        loading_task = asyncio.create_task(
+            animate_loading(status_message, category_name, hours)
+        )
+        await asyncio.sleep(0.05)
         await status_message.edit_text(
             f"🔎 <b>جست‌وجوی عمیق {category_name}</b>\n\n"
             f"در حال خواندن تمام کانال‌ها و تحلیل پیام‌های {hours} ساعت اخیر...\n\n"
@@ -210,7 +284,10 @@ async def build_and_send_report(
             parse_mode=ParseMode.HTML,
         )
         try:
-            result = await prepare_digest(hours=hours, category=category)
+            extra_channels = user_prefs(user_id).get("extra_channels", [])
+            result = await prepare_digest(hours=hours, category=category, extra_channels=extra_channels)
+            loading_task.cancel()
+            await asyncio.gather(loading_task, return_exceptions=True)
             stories = result["stories"]
             cache = {"stories": stories, "category": category, "offset": 0}
             context.user_data["digest_cache"] = cache
@@ -241,6 +318,8 @@ async def build_and_send_report(
             if not remaining:
                 context.user_data.pop("digest_cache", None)
         except Exception:
+            loading_task.cancel()
+            await asyncio.gather(loading_task, return_exceptions=True)
             logger.exception("ساخت گزارش برای کاربر %s ناموفق بود", user_id)
             await status_message.edit_text(
                 "⚠️ <b>ساخت گزارش کامل نشد</b>\n\nچند دقیقه دیگر دوباره امتحان کن.",
@@ -273,6 +352,20 @@ async def custom_hours_message(update: Update, context: ContextTypes.DEFAULT_TYP
     )
 
 
+async def add_channel_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not context.user_data.get("awaiting_channel"):
+        return
+    channel = safe_channel(update.effective_message.text or "")
+    if not channel:
+        await update.effective_message.reply_text("فرمت درست نیست. @channel یا لینک عمومی t.me/channel را بفرست.")
+        return
+    prefs = user_prefs(update.effective_user.id)
+    channels = list(dict.fromkeys(prefs.get("extra_channels", []) + [channel]))[:30]
+    update_user_prefs(update.effective_user.id, extra_channels=channels)
+    context.user_data.pop("awaiting_channel", None)
+    await update.effective_message.reply_text(f"✅ کانال @{html.escape(channel)} اضافه شد.", parse_mode=ParseMode.HTML, reply_markup=channels_keyboard())
+
+
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     data = query.data or ""
@@ -285,11 +378,29 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     await query.answer()
 
     if data == "page:menu":
-        await query.edit_message_text(
-            "🗞 <b>چه گزارشی می‌خوای؟</b>\n\nدسته موردنظرت را انتخاب کن:",
-            parse_mode=ParseMode.HTML,
-            reply_markup=main_menu_keyboard(),
-        )
+        lang = user_prefs(user.id).get("language", "fa")
+        text = "🗞 <b>Choose your briefing</b>" if lang == "en" else "🗞 <b>چه گزارشی می‌خوای؟</b>\n\nدسته موردنظرت را انتخاب کن:"
+        await query.edit_message_text(text, parse_mode=ParseMode.HTML, reply_markup=main_menu_keyboard(lang))
+        return
+    if data == "page:language":
+        await query.edit_message_text("🌐 <b>زبان ربات را انتخاب کن</b> / <b>Choose bot language</b>", parse_mode=ParseMode.HTML, reply_markup=language_keyboard())
+        return
+    if data.startswith("lang:"):
+        lang = data.split(":", 1)[1]
+        update_user_prefs(user.id, language=lang)
+        await query.edit_message_text("✅ <b>زبان روی فارسی تنظیم شد.</b>" if lang == "fa" else "✅ <b>Language set to English.</b>", parse_mode=ParseMode.HTML, reply_markup=main_menu_keyboard(lang))
+        return
+    if data == "page:channels":
+        prefs = user_prefs(user.id)
+        channels = prefs.get("extra_channels", [])
+        lang = prefs.get("language", "fa")
+        heading = "📚 <b>My channels</b>" if lang == "en" else "📚 <b>کانال‌های من</b>"
+        listed = "\n".join(f"• @{html.escape(c)}" for c in channels) if channels else ("No personal channels yet." if lang == "en" else "هنوز کانالی اضافه نشده.")
+        await query.edit_message_text(heading + "\n\n" + listed, parse_mode=ParseMode.HTML, reply_markup=channels_keyboard())
+        return
+    if data == "channel:add":
+        context.user_data["awaiting_channel"] = True
+        await query.edit_message_text("✍️ <b>کانال عمومی را بفرست</b>\n\nمثال: @thehackernews", parse_mode=ParseMode.HTML, reply_markup=back_keyboard())
         return
     if data == "page:help":
         await query.edit_message_text(
@@ -379,7 +490,8 @@ def main() -> None:
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("about", about_command))
     application.add_handler(CallbackQueryHandler(button_callback))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, custom_hours_message))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, add_channel_message), group=0)
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, custom_hours_message), group=1)
     application.add_error_handler(error_handler)
     logger.info("%s آماده است", APP_NAME)
     application.run_polling(allowed_updates=Update.ALL_TYPES)

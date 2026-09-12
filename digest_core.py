@@ -409,10 +409,13 @@ async def send_message(chat_id: int | str, text: str) -> None:
 async def prepare_digest(
     hours: int = HOURS_WINDOW,
     category: str = "security",
+    extra_channels: list[str] | None = None,
 ) -> dict[str, Any]:
     """همه کانال‌های دسته را می‌خواند و کل خبرهای مهم را برای صفحه‌بندی برمی‌گرداند."""
     validate_config()
-    channels = AI_CHANNELS if category == "ai" else SECURITY_CHANNELS
+    base_channels = AI_CHANNELS if category == "ai" else SECURITY_CHANNELS
+    extra_channels = extra_channels or []
+    channels = list(dict.fromkeys(base_channels + extra_channels))
     grouped = await fetch_channel_messages(hours, channels)
     total_messages = sum(len(messages) for messages in grouped.values())
     active_channels = len(grouped)
@@ -424,6 +427,7 @@ async def prepare_digest(
         "total_messages": total_messages,
         "active_channels": active_channels,
         "configured_channels": len(channels),
+        "extra_channels": extra_channels,
     }
 
 
