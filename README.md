@@ -1,122 +1,210 @@
-# 🤖 TeleBrief
-## رصدخانه هوشمند تلگرام | تحلیل اخبار AI و امنیت سایبری
+<div align="center">
 
-[![Python Version](https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square&logo=python)](https://www.python.org/)
-[![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
-[![Telegram](https://img.shields.io/badge/Try%20Bot-@telebriefdata__bot-0088cc?style=flat-square&logo=telegram)](https://t.me/telebriefdata_bot)
+<img src="https://capsule-render.vercel.app/api?type=venom&height=220&color=0:0a0d1a,50:1a2a5e,100:0a0d1a&text=TELEBRIEF&fontColor=4A9EFF&fontSize=60&fontAlign=50&fontAlignY=55&animation=fadeIn&stroke=4A9EFF&strokeWidth=1&desc=%D8%B1%D8%B5%D8%AF%D8%AE%D8%A7%D9%86%D9%87%20%D9%87%D9%88%D8%B4%D9%85%D9%86%D8%AF%20%D8%AA%D9%84%DA%AF%D8%B1%D8%A7%D9%85%20%7C%20AI%20%C2%B7%20Cybersecurity%20%C2%B7%20MTProto&descAlign=50&descAlignY=75&descSize=15&descColor=7db8ff" width="100%"/>
 
-> **"In a world drowning in information, the art is in what you ignore."**
+<br/>
 
-TeleBrief scans hundreds of Telegram tech channels, filters spam, and delivers AI-analyzed reports with importance scores, key insights, and direct source links.
+<img src="https://readme-typing-svg.herokuapp.com?font=Share+Tech+Mono&weight=700&size=20&duration=4000&pause=800&color=4A9EFF&center=true&vCenter=true&width=760&height=45&lines=%E2%96%B6+INTELLIGENCE+FEED+%E2%80%94+ONLINE;%E2%97%8F+TELETHON+%C2%B7+DEEPSEEK+%C2%B7+OPENAI;%E2%96%B6+TWO-STAGE+AI+FILTERING+PIPELINE;%E2%97%8F+PERSIAN-NATIVE+TELEGRAM+UI"/>
 
-## 📖 Quick Navigation
+<br/>
 
-- [Why TeleBrief?](#why)
-- [Core Features](#features)
-- [Architecture](#architecture)
-- [Installation](#installation)
-- [Deployment](#deployment)
-- [Tech Stack](#tech)
-- [Troubleshooting](#troubleshooting)
-- [FAQ](#faq)
-- [Contributing](#contributing)
+<a href="https://www.python.org/"><img src="https://img.shields.io/badge/%E2%96%B2%20PYTHON-3.11%2B-4A9EFF?style=for-the-badge&logo=python&logoColor=4A9EFF&labelColor=0a0d1a"/></a>
+<a href="https://t.me/telebriefdata_bot"><img src="https://img.shields.io/badge/%E2%96%B6%20TELEGRAM-Try_the_Bot-4A9EFF?style=for-the-badge&logo=telegram&logoColor=4A9EFF&labelColor=0a0d1a"/></a>
+<a href="LICENSE"><img src="https://img.shields.io/badge/%E2%97%88%20LICENSE-MIT-4A9EFF?style=for-the-badge&labelColor=0a0d1a"/></a>
+<a href="https://my.telegram.org"><img src="https://img.shields.io/badge/%E2%97%8F%20MTPROTO-Telethon-4A9EFF?style=for-the-badge&labelColor=0a0d1a"/></a>
+<a href="https://github.com/Amin-Moniry/TeleBrief"><img src="https://img.shields.io/badge/%E2%96%B3%20GITHUB-Amin--Moniry-4A9EFF?style=for-the-badge&logo=github&logoColor=4A9EFF&labelColor=0a0d1a"/></a>
 
----
+<br/><br/>
 
-## <a id="why"></a>🎯 Why TeleBrief?
+> **"در دنیایی که در سیل اطلاعات غرق شده، هنر واقعی در چیزی‌ست که نادیده می‌گیری."**
 
-**The Problem:** Telegram tech channels = 1000s posts/day but 70% spam, 20% clickbait, 10% valuable
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif">
 
-**The Solution:** Deep MTProto scraping + Two-stage AI filtering + Modern Telegram UI
-
-### Three Revolutionary Components
-
-1. **Deep MTProto Scraping (Telethon)**
-   - Access without admin permissions
-   - Real-time monitoring
-   - Bypass rate limits
-
-2. **Two-Stage AI Pipeline**
-   - Stage 1: Shortlisting & spam removal
-   - Stage 2: Merge & importance scoring (0-100)
-
-3. **Beautiful Telegram UI**
-   - Persian-native formatted cards
-   - Expandable details
-   - Direct source links
+</div>
 
 ---
 
-## <a id="features"></a>✨ Core Features
+<div align="center">
 
-### 🧠 Two-Tier AI Analysis
-Powered by DeepSeek V3/V4 & OpenAI. Extracts importance, reasoning, technical implications.
+## `◈` معرفی
 
-### 🔄 Live Loading Dashboard
-Real-time animated status with phase tracking.
+</div>
 
-### ⏱️ Flexible Time Filtering
-Presets: 6h, 12h, 24h, 48h, 7d, 15d. Custom ranges (1-720 hours).
+<div align="center">
 
-### 📚 Channel Personalization
-Start with curated defaults. Add unlimited custom channels.
+**TeleBrief** صدها کانال تلگرامی حوزه‌ی فناوری و امنیت سایبری را به‌صورت لحظه‌ای رصد می‌کند، اسپم و محتوای بی‌ارزش را حذف می‌کند و با یک پایپ‌لاین هوش مصنوعی دو مرحله‌ای، خروجی را به‌صورت گزارش‌های امتیازدهی‌شده، خلاصه‌شده و همراه با لینک منبع مستقیم در اختیار شما قرار می‌دهد.
 
-### 📑 Smart Pagination
-10 items/page by importance. Progressive loading.
+هسته‌ی سیستم بر پایه‌ی اسکرپینگ عمیق با **Telethon (MTProto)** ساخته شده — بدون نیاز به دسترسی ادمین، بدون محدودیت نرخ، و با پایش لحظه‌ای. خروجی نهایی در قالب کارت‌های زیبا و فارسی‌نویس در تلگرام تحویل داده می‌شود.
 
-### 🛡️ Intelligent Resilience
-LLM fails? Fallback to engagement-ranked posts. Never fake analysis.
+</div>
+
+<br/>
+
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif">
 
 ---
 
-## <a id="architecture"></a>🏗️ Architecture
+<div align="center">
 
-```
-📡 Telegram Channels
-     ↓
-⚙️ Harvesting (Telethon MTProto)
-     ↓
-🧠 AI Pipeline (2-Stage Analysis)
-     ↓
-🚀 Delivery (Telegram Bot + GitHub Actions)
-```
+## `◈` چرا TeleBrief؟
 
-### Performance
+<img src="https://readme-typing-svg.herokuapp.com?font=Share+Tech+Mono&size=13&duration=3000&pause=999999&color=4A9EFF&center=true&vCenter=true&width=560&height=28&lines=%E2%97%89+%D8%A7%D8%B2+%D9%87%D8%B2%D8%A7%D8%B1%D8%A7%D9%86+%D9%BE%D8%B3%D8%AA+%D8%AA%D8%A7+%D8%A8%DB%8C%D9%86%D8%B4+%D9%88%D8%A7%D9%82%D8%B9%DB%8C"/>
 
-| Metric | Value |
+<small>
+
+| <sub>▶ مسئله</sub> | <sub>واقعیت</sub> |
 |:---:|:---:|
-| Analysis Time | 15-45s |
-| Scan Speed | ~100 msg/s |
-| Memory | <150MB |
-| Pagination | <1s |
+| <sub>حجم پست‌ها</sub> | <sub>هزاران پست در روز در کانال‌های فنی تلگرام</sub> |
+| <sub>اسپم</sub> | <sub>۷۰٪ محتوای بی‌ارزش و تکراری</sub> |
+| <sub>کلیک‌بیت</sub> | <sub>۲۰٪ عنوان‌های فریبنده بدون محتوای واقعی</sub> |
+| <sub>ارزش واقعی</sub> | <sub>تنها ۱۰٪ قابل استفاده — و TeleBrief دقیقاً همان را پیدا می‌کند</sub> |
+
+</small>
+
+</div>
+
+<br/>
+
+<div align="center">
+
+### سه رکن اصلی
+
+<table>
+<tr>
+<td align="center" width="260">
+
+**`◆` اسکرپینگ عمیق MTProto**
+<sub>دسترسی بدون نیاز به ادمین · پایش لحظه‌ای · عبور از محدودیت نرخ</sub>
+
+</td>
+<td align="center" width="260">
+
+**`◆` پایپ‌لاین دو مرحله‌ای AI**
+<sub>مرحله ۱: فیلتر و حذف اسپم · مرحله ۲: ادغام و امتیازدهی اهمیت (۰ تا ۱۰۰)</sub>
+
+</td>
+<td align="center" width="260">
+
+**`◆` رابط زیبای تلگرام**
+<sub>کارت‌های فارسی‌نویس · جزئیات باز‌شونده · لینک مستقیم منبع</sub>
+
+</td>
+</tr>
+</table>
+
+</div>
+
+<br/>
+
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif">
 
 ---
 
-## <a id="installation"></a>🚀 Installation
+<div align="center">
 
-### Prerequisites
-- Python 3.11+
-- Telegram account
-- Telegram API ID/Hash (from https://my.telegram.org)
-- Bot Token (from @BotFather)
-- xKiro API Key (for LLM)
+## `◈` قابلیت‌های اصلی
 
-### Quick Setup
+<img src="https://readme-typing-svg.herokuapp.com?font=Share+Tech+Mono&size=13&duration=3000&pause=999999&color=4A9EFF&center=true&vCenter=true&width=520&height=28&lines=%E2%97%89+%D9%87%D8%B1%D8%A2%D9%86%DA%86%D9%87+%DA%A9%D9%87+%D8%A8%D8%B1%D8%A7%DB%8C+%D8%B1%D8%B5%D8%AF+%D9%86%DB%8C%D8%A7%D8%B2+%D8%AF%D8%A7%D8%B1%DB%8C%D8%AF"/>
+
+<small>
+
+| <sub>▶ ویژگی</sub> | <sub>توضیح</sub> | <sub>وضعیت</sub> |
+|:---:|:---:|:---:|
+| <sub>تحلیل دو‌لایه AI</sub> | <sub>مبتنی بر DeepSeek V3/V4 و OpenAI — استخراج اهمیت، استدلال و اثرات فنی</sub> | <sub>✅</sub> |
+| <sub>داشبورد لود زنده</sub> | <sub>وضعیت متحرک لحظه‌ای با ردیابی هر فاز از پردازش</sub> | <sub>✅</sub> |
+| <sub>فیلتر زمانی انعطاف‌پذیر</sub> | <sub>پیش‌تنظیم‌های ۶ تا ۷۲۰ ساعته + بازه‌ی سفارشی</sub> | <sub>✅</sub> |
+| <sub>شخصی‌سازی کانال‌ها</sub> | <sub>شروع با لیست پیش‌فرض + افزودن کانال نامحدود</sub> | <sub>✅</sub> |
+| <sub>صفحه‌بندی هوشمند</sub> | <sub>۱۰ آیتم در هر صفحه بر اساس اهمیت، بارگذاری تدریجی</sub> | <sub>✅</sub> |
+| <sub>تاب‌آوری هوشمند</sub> | <sub>در صورت خطای LLM، بازگشت به رتبه‌بندی تعاملی — هرگز تحلیل جعلی</sub> | <sub>✅</sub> |
+| <sub>پشتیبانی مدیا</sub> | <sub>تصویر، فایل و پیام صوتی</sub> | <sub>⏳</sub> |
+| <sub>داشبورد آنالیتیکس</sub> | <sub>متریک‌های استفاده و پایش عملکرد</sub> | <sub>⏳</sub> |
+
+</small>
+
+</div>
+
+<br/>
+
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif">
+
+---
+
+<div align="center">
+
+## `◈` معماری سیستم
+
+<img src="https://readme-typing-svg.herokuapp.com?font=Share+Tech+Mono&size=13&duration=3000&pause=999999&color=4A9EFF&center=true&vCenter=true&width=520&height=28&lines=%E2%97%89+%D9%85%D8%B3%DB%8C%D8%B1+%D8%AF%D8%A7%D8%AF%D9%87+%D8%A7%D8%B2+%DA%A9%D8%A7%D9%86%D8%A7%D9%84+%D8%AA%D8%A7+%DA%AF%D8%B2%D8%A7%D8%B1%D8%B4"/>
+
+</div>
+
+```mermaid
+graph TD
+    A[📡 کانال‌های تلگرام] --> B[⚙️ Harvesting — Telethon MTProto]
+    B --> C{فیلتر اولیه اسپم}
+    C -->|عبور کرد| D[🧠 مرحله ۱ — Shortlisting]
+    C -->|حذف شد| X[🗑️ اسپم]
+    D --> E[🧠 مرحله ۲ — Merge & Scoring]
+    E --> F{امتیاز اهمیت 0-100}
+    F --> G[🚀 ارسال به Telegram Bot]
+    G --> H[📑 صفحه‌بندی هوشمند]
+    G --> I[⏱️ GitHub Actions Scheduler]
+```
+
+<br/>
+
+<div align="center">
+
+### `◆` عملکرد
+
+<small>
+
+| <sub>متریک</sub> | <sub>مقدار</sub> |
+|:---:|:---:|
+| <sub>زمان تحلیل</sub> | <sub>۱۵ تا ۴۵ ثانیه</sub> |
+| <sub>سرعت اسکن</sub> | <sub>~۱۰۰ پیام در ثانیه</sub> |
+| <sub>مصرف حافظه</sub> | <sub>کمتر از ۱۵۰MB</sub> |
+| <sub>سرعت صفحه‌بندی</sub> | <sub>کمتر از ۱ ثانیه</sub> |
+
+</small>
+
+</div>
+
+<br/>
+
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif">
+
+---
+
+<div align="center">
+
+## `◈` نصب و راه‌اندازی
+
+<img src="https://readme-typing-svg.herokuapp.com?font=Share+Tech+Mono&size=13&duration=3000&pause=999999&color=4A9EFF&center=false&vCenter=true&width=560&height=28&lines=%E2%96%B6+%D8%B1%D8%A7%D9%87%E2%80%8C%D8%A7%D9%86%D8%AF%D8%A7%D8%B2%DB%8C+%DA%AF%D8%A7%D9%85+%D8%A8%D9%87+%DA%AF%D8%A7%D9%85"/>
+
+</div>
+
+**پیش‌نیازها:** Python 3.11+ · حساب تلگرام · Telegram API ID/Hash از my.telegram.org · توکن ربات از BotFather@ · کلید API برای LLM
+
+![01](https://img.shields.io/badge/01-Clone_%26_Setup-4A9EFF?style=flat-square&labelColor=0a0d1a) &nbsp; کلون کردن ریپو و ساخت محیط مجازی
 
 ```bash
-# 1. Clone
 git clone https://github.com/Amin-Moniry/TeleBrief.git
 cd TeleBrief
 
-# 2. Virtual environment
 python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# or: venv\Scripts\activate  # Windows
+source venv/bin/activate   # Linux/Mac
+# venv\Scripts\activate    # Windows
+```
 
-# 3. Install dependencies
+![02](https://img.shields.io/badge/02-Install_Deps-4A9EFF?style=flat-square&labelColor=0a0d1a) &nbsp; نصب وابستگی‌ها
+
+```bash
 pip install -r requirements.txt
+```
 
-# 4. Get Telegram session
+![03](https://img.shields.io/badge/03-Telegram_Session-4A9EFF?style=flat-square&labelColor=0a0d1a) &nbsp; ساخت Session String تلگرام
+
+```bash
 python -c "
 from telethon.sync import TelegramClient
 from telethon.sessions import StringSession
@@ -125,55 +213,92 @@ API_HASH = 'YOUR_API_HASH'
 with TelegramClient(StringSession(), API_ID, API_HASH) as c:
     print(c.session.save())
 "
+```
 
-# 5. Configure .env
+![04](https://img.shields.io/badge/04-Configure_.env-4A9EFF?style=flat-square&labelColor=0a0d1a) &nbsp; تنظیم متغیرهای محیطی
+
+```bash
 cp .env.example .env
-# Edit .env with your credentials
+# ویرایش .env با مقادیر خودتان
+```
 
-# 6. Run
+![05](https://img.shields.io/badge/05-Run-4A9EFF?style=flat-square&labelColor=0a0d1a) &nbsp; اجرا
+
+```bash
 python command_bot.py
 ```
 
+<br/>
+
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif">
+
 ---
 
-## <a id="deployment"></a>☁️ Deployment
+<div align="center">
 
-### Railway / Render / Fly.io (24/7, Free)
-1. Connect GitHub repo
-2. Start command: `python command_bot.py`
-3. Add env vars
-4. Deploy
+## `◈` استقرار (Deployment)
 
-### GitHub Actions (Scheduled)
-Create `.github/workflows/daily.yml` for automated 12h reports
+</div>
 
-### Linux Systemd
-Create `/etc/systemd/system/telebrief.service`
+<table align="center">
+<tr>
+<td align="center" width="230">
 
-### Docker
+**`◆` Railway / Render / Fly.io**
+<sub>رایگان و ۲۴/۷ — اتصال ریپو، تنظیم Start Command، افزودن Env Vars، دیپلوی</sub>
+
+</td>
+<td align="center" width="230">
+
+**`◆` GitHub Actions**
+<sub>ساخت `.github/workflows/daily.yml` برای گزارش‌های زمان‌بندی‌شده ۱۲ ساعته</sub>
+
+</td>
+<td align="center" width="230">
+
+**`◆` Docker**
 ```bash
-docker run -d --name telebrief --env-file .env telebrief:latest
+docker run -d --name telebrief \
+  --env-file .env telebrief:latest
 ```
 
----
+</td>
+</tr>
+</table>
 
-## <a id="tech"></a>🛠️ Tech Stack
+<br/>
 
-| Component | Technology |
-|:---|:---|
-| Language | Python 3.11+ |
-| Telegram Client | Telethon |
-| Bot Framework | python-telegram-bot |
-| LLM Gateway | xKiro (OpenAI-compatible) |
-| Storage | JSON |
-| Async | asyncio |
-| CI/CD | GitHub Actions |
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif">
 
 ---
 
-## ⚙️ Configuration
+<div align="center">
 
-### Environment Variables
+## `◈` پشته فناوری
+
+| Layer | Technology |
+|:-----:|:----------:|
+| **زبان** | Python 3.11+ |
+| **کلاینت تلگرام** | Telethon (MTProto) |
+| **فریم‌ورک بات** | python-telegram-bot |
+| **دروازه LLM** | xKiro (سازگار با OpenAI) |
+| **ذخیره‌سازی** | JSON |
+| **همزمانی** | asyncio |
+| **CI/CD** | GitHub Actions |
+
+</div>
+
+<br/>
+
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif">
+
+---
+
+<div align="center">
+
+## `◈` تنظیمات محیطی
+
+</div>
 
 ```bash
 API_ID=YOUR_ID
@@ -190,106 +315,201 @@ MODEL_RETRIES=4
 ANALYSIS_CONCURRENCY=1
 ```
 
-### Model Selection
-
 ```python
-DEFAULT_MODEL = "openai/gpt-5.6-luna"  # Fast & cheap
-FALLBACK_MODELS = "z-ai/glm-5.3-flash"  # Better reasoning
+DEFAULT_MODEL = "openai/gpt-5.6-luna"     # سریع و ارزان
+FALLBACK_MODELS = "z-ai/glm-5.3-flash"    # استدلال بهتر
 ```
+
+<br/>
+
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif">
 
 ---
 
-## <a id="troubleshooting"></a>🐛 Troubleshooting
+<div align="center">
 
-### Bot Won't Start
+## `◈` رفع اشکال
+
+<img src="https://readme-typing-svg.herokuapp.com?font=Share+Tech+Mono&size=13&duration=3000&pause=999999&color=4A9EFF&center=false&vCenter=true&width=500&height=28&lines=%E2%96%B6+%D9%85%D8%B4%DA%A9%D9%84%D8%A7%D8%AA+%D8%B1%D8%A7%DB%8C%D8%AC+%D9%88+%D8%B1%D8%A7%D9%87%E2%80%8C%D8%AD%D9%84"/>
+
+</div>
+
+**بات اجرا نمی‌شود**
 ```bash
 ps aux | grep command_bot.py
 kill -9 PID
-# Get new token from @BotFather
+# دریافت توکن جدید از BotFather@
 ```
 
-### LLM Service 503
+**خطای 503 سرویس LLM**
 ```bash
-# Check model exists
 curl https://api.xkiro.com/v1/models
-
-# Switch model
+# سوییچ مدل
 DEFAULT_MODEL=openai/gpt-5.6-luna
 ```
 
-### Session Expired
-Regenerate using the SESSION_STRING script above.
-
-### Rate Limiting
-Reduce `ANALYSIS_CONCURRENCY=1` or increase `BATCH_CHAR_LIMIT=20000`
-
----
-
-## <a id="faq"></a>❓ FAQ
-
-**Q: How accurate is analysis?**  
-A: 80-90% on importance scoring, trained on tech/security patterns.
-
-**Q: Self-hosted LLM?**  
-A: Yes! Any OpenAI-compatible API (Ollama, LocalAI, etc).
-
-**Q: Privacy?**  
-A: Local analysis, no logging, follows API provider ToS.
-
-**Q: Add custom channels?**  
-A: Use `/addchannel` → enter `@channel_name`
-
-**Q: Why slow?**  
-A: Large batches or slow LLM. Try increasing `ANALYSIS_CONCURRENCY`.
-
----
-
-## 📡 Default Channels
-
-### AI Channels
-@digiai, @RoidBest, @Farda_Ai, @Lumosel, @asrnovin_ir, @perplexity, @cryptoquant_official, @Hugging_face_news
-
-### Security Channels
-@cybersecurityexperts, @thehackernews, @cibsecurity, @Cyber_Security_Channel, @androidMalware, @cloudandcybersecurity
-
-**Add unlimited custom channels via bot menu**
-
----
-
-## 🎮 Bot Commands
-
+**Session منقضی شده**
 ```
-/start          → Initialize, show main menu
-/menu           → Quick category selector
-/ai             → Last 12h AI summary
-/security       → Last 12h security summary
-/help           → Usage guide
-/about          → Project info
+اسکریپت SESSION_STRING بالا را دوباره اجرا کنید
 ```
 
----
+**محدودیت نرخ**
+```
+ANALYSIS_CONCURRENCY=1 را کاهش دهید یا BATCH_CHAR_LIMIT=20000 را افزایش دهید
+```
 
-## <a id="contributing"></a>🤝 Contributing
+<br/>
 
-1. Fork repo
-2. Create branch: `git checkout -b feature/your-idea`
-3. Commit: `git commit -m 'feat: description'`
-4. Push: `git push origin feature/your-idea`
-5. PR
-
----
-
-## 👤 Author
-
-**Created with ❤️ by Amin Moniry**
-
-[![GitHub](https://img.shields.io/badge/GitHub-Amin--Moniry-181717?style=flat-square&logo=github)](https://github.com/Amin-Moniry)
-[![Telegram](https://img.shields.io/badge/Telegram-@telebriefdata__bot-2CA5E0?style=flat-square&logo=telegram)](https://t.me/telebriefdata_bot)
-
-⭐ **Star the repo if this helped you!**
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif">
 
 ---
 
-## 📜 License
+<div align="center">
 
-MIT License - See [LICENSE](LICENSE) for details
+## `◈` سوالات متداول
+
+<small>
+
+| <sub>سوال</sub> | <sub>پاسخ</sub> |
+|:---|:---|
+| <sub>**دقت تحلیل چقدر است؟**</sub> | <sub>۸۰ تا ۹۰٪ در امتیازدهی اهمیت، آموزش‌دیده روی الگوهای فناوری/امنیت</sub> |
+| <sub>**می‌شود LLM خودمیزبان استفاده کرد؟**</sub> | <sub>بله — هر API سازگار با OpenAI (Ollama، LocalAI و...)</sub> |
+| <sub>**حریم خصوصی چطور است؟**</sub> | <sub>تحلیل محلی، بدون لاگ، مطابق با ToS ارائه‌دهنده API</sub> |
+| <sub>**افزودن کانال دلخواه؟**</sub> | <sub>با دستور `/addchannel` و وارد کردن `@channel_name`</sub> |
+| <sub>**چرا کند است؟**</sub> | <sub>بچ بزرگ یا LLM کند — `ANALYSIS_CONCURRENCY` را افزایش دهید</sub> |
+
+</small>
+
+</div>
+
+<br/>
+
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif">
+
+---
+
+<div align="center">
+
+## `◈` کانال‌های پیش‌فرض
+
+<table>
+<tr>
+<td align="center" width="330">
+
+**🧠 کانال‌های AI**
+<sub>@digiai · @RoidBest · @Farda_Ai · @Lumosel · @asrnovin_ir · @perplexity · @cryptoquant_official · @Hugging_face_news</sub>
+
+</td>
+<td align="center" width="330">
+
+**🛡️ کانال‌های امنیتی**
+<sub>@cybersecurityexperts · @thehackernews · @cibsecurity · @Cyber_Security_Channel · @androidMalware · @cloudandcybersecurity</sub>
+
+</td>
+</tr>
+</table>
+
+**افزودن کانال نامحدود از طریق منوی بات**
+
+</div>
+
+<br/>
+
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif">
+
+---
+
+<div align="center">
+
+## `◈` دستورات بات
+
+```
+/start          → راه‌اندازی، نمایش منوی اصلی
+/menu           → انتخاب سریع دسته‌بندی
+/ai             → خلاصه ۱۲ ساعت اخیر حوزه AI
+/security       → خلاصه ۱۲ ساعت اخیر حوزه امنیت
+/help           → راهنمای استفاده
+/about          → درباره پروژه
+```
+
+</div>
+
+<br/>
+
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif">
+
+---
+
+<div align="center">
+
+## `◈` مشارکت (Contributing)
+
+1. Fork کردن ریپو
+2. ساخت برنچ: `git checkout -b feature/your-idea`
+3. کامیت: `git commit -m 'feat: description'`
+4. پوش: `git push origin feature/your-idea`
+5. باز کردن Pull Request
+
+</div>
+
+<br/>
+
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif">
+
+---
+
+<div align="center">
+
+## `◈` سازنده
+
+<br/>
+
+<img src="https://readme-typing-svg.herokuapp.com?font=Share+Tech+Mono&size=14&duration=2000&pause=400&color=4A9EFF&center=true&vCenter=true&width=500&height=30&lines=%E2%96%B6+Created+with+%E2%9D%A4+by+Amin+Moniry"/>
+
+<br/>
+
+<table>
+<tr>
+<td align="center" width="210">
+<a href="https://github.com/Amin-Moniry">
+<img src="https://img.shields.io/badge/◈_GITHUB-Amin--Moniry-4A9EFF?style=for-the-badge&logo=github&logoColor=4A9EFF&labelColor=0a0d1a&color=0d1533" width="200"/>
+</a>
+</td>
+<td align="center" width="210">
+<a href="https://t.me/telebriefdata_bot">
+<img src="https://img.shields.io/badge/◈_TELEGRAM-@telebriefdata__bot-4A9EFF?style=for-the-badge&logo=telegram&logoColor=4A9EFF&labelColor=0a0d1a&color=0d1533" width="200"/>
+</a>
+</td>
+<td align="center" width="210">
+<a href="https://github.com/Amin-Moniry/TeleBrief/issues">
+<img src="https://img.shields.io/badge/◈_ISSUES-Report_a_Bug-4A9EFF?style=for-the-badge&logo=githubactions&logoColor=4A9EFF&labelColor=0a0d1a&color=0d1533" width="200"/>
+</a>
+</td>
+</tr>
+</table>
+
+⭐ **اگر این پروژه به دردتان خورد، یک ستاره بدهید!**
+
+</div>
+
+<br/>
+
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif">
+
+---
+
+<div align="center">
+
+## `◈` لایسنس
+
+پروژه تحت مجوز **MIT License** منتشر شده — جزئیات کامل در فایل [LICENSE](LICENSE)
+
+<br/>
+
+<img src="https://readme-typing-svg.herokuapp.com?font=Share+Tech+Mono&weight=700&size=15&duration=3500&pause=900&color=4A9EFF&center=true&vCenter=true&width=720&height=50&lines=%E2%96%B6+Engineered+by+Amin+Moniry;%E2%97%8F+One+Feed.+Two+Stages.+Zero+Noise.;%E2%96%B6+Telethon+%C2%B7+DeepSeek+%C2%B7+OpenAI+%C2%B7+2025"/>
+
+<br/>
+
+<img src="https://capsule-render.vercel.app/api?type=venom&color=0:0a0d1a,50:1a2a5e,100:0a0d1a&height=160&section=footer&text=Built%20with%20intelligence%20%E2%80%94%20TeleBrief&fontSize=26&fontAlign=50&fontAlignY=55&fontColor=4A9EFF&animation=fadeIn&stroke=4A9EFF&strokeWidth=0.5" width="100%"/>
+
+</div>
