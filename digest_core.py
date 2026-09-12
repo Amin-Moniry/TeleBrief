@@ -43,7 +43,7 @@ HOURS_WINDOW = env_int("HOURS_WINDOW", 24)
 MAX_HOURS = 720
 MAX_MESSAGES_PER_CHANNEL = env_int("MAX_MESSAGES_PER_CHANNEL", 2000)
 MAX_STORIES = env_int("MAX_STORIES", 0)  # 0 یعنی بدون سقف مصنوعی
-BATCH_CHAR_LIMIT = env_int("BATCH_CHAR_LIMIT", 22_000)
+BATCH_CHAR_LIMIT = env_int("BATCH_CHAR_LIMIT", 12_000)
 
 SECURITY_CHANNELS = [
     "cybersecurityexperts", "thehackernews", "cibsecurity",
@@ -219,7 +219,7 @@ def shortlist_prompt(messages: list[ChannelMessage], category: str, lang: str = 
     sources = "\n\n".join(message.prompt_block() for message in messages)
     return f"""این یک مرحله غربال‌گری عمیق خبر در حوزه {field} است. همه فیلدهای خروجی را به زبان {output_language} بنویس.
 همه منابع زیر را دقیق بخوان. تبلیغ، بازنشر تکراری، شایعه بی‌سند، متن انگیزشی و خبر کم‌اثر را حذف کن.
-تمام رویدادهای واقعاً مهم را انتخاب کن؛ هیچ سقف عددی برای خبرهای مهم نگذار. تبلیغات، اسپم، بازنشر بی‌ارزش و موارد کم‌اهمیت را حذف کن، اما هر ابزار جدید، به‌روزرسانی مهم، آسیب‌پذیری، قابلیت کاربردی یا خبر ارزشمند را نگه دار. اهمیت را با تازگی، اثر عملی، اعتبار منبع، گستره اثر و شواهد بسنج.
+تمام رویدادهای واقعاً مهم این بسته را انتخاب کن؛ هیچ خبر مهمی را به‌خاطر رتبه یا تعداد حذف نکن. در این بسته می‌توانی چندین رویداد برگردانی. تبلیغات، اسپم، بازنشر بی‌ارزش و موارد کم‌اهمیت را حذف کن، اما هر ابزار جدید، به‌روزرسانی مهم، آسیب‌پذیری، قابلیت کاربردی یا خبر ارزشمند را نگه دار. اهمیت را با تازگی، اثر عملی، اعتبار منبع، گستره اثر و شواهد بسنج.
 اگر چند پیام درباره یک رویدادند، آن‌ها را یک مورد کن و همه شناسه‌های منبع مرتبط را نگه دار.
 هیچ واقعیتی خارج از متن اضافه نکن. خروجی فقط آرایه JSON با این ساختار باشد:
 [
@@ -247,7 +247,18 @@ def merge_prompt(candidates: list[dict[str, Any]], category: str, lang: str = "f
 فارسی را روان، حرفه‌ای و بدون اغراق بنویس. title، summary، why_important، key_points، actions، score و sources را حفظ کن.
 منابع ساختگی ممنوع است و sources فقط باید از ورودی باشد. خروجی فقط آرایه JSON معتبر باشد.
 
-{json.dumps(candidates, ensure_ascii=False)}"""
+{json.dumps([
+        {
+            "title": item.get("title", ""),
+            "summary": item.get("summary", "")[:900],
+            "why_important": item.get("why_important", "")[:400],
+            "key_points": item.get("key_points", [])[:4],
+            "actions": item.get("actions", [])[:2],
+            "score": item.get("score", 0),
+            "sources": item.get("sources", []),
+        }
+        for item in candidates
+    ], ensure_ascii=False)}"""
 
 
 def clean_model_text(value: Any) -> str:
@@ -290,7 +301,7 @@ def normalize_stories(data: Any, valid_sources: set[tuple[str, int]]) -> list[di
             "key_points": [clean_model_text(x) for x in item.get("key_points", []) if clean_model_text(x)][:7],
             "actions": [clean_model_text(x) for x in item.get("actions", []) if clean_model_text(x)][:5],
             "score": score,
-            "sources": sources[:5],
+            "sources": sources,
         })
     return sorted(stories, key=lambda x: x["score"], reverse=True)
 
@@ -300,21 +311,24 @@ def fallback_stories(
     grouped_messages: dict[str, list[ChannelMessage]],
     limit: int = MAX_STORIES,
 ) -> list[dict[str, Any]]:
-    """خروجی اضطراری قابل‌استفاده وقتی سرویس مدل موقتاً 500 می‌دهد."""
+    """فقط پیام‌های عمدتاً فارسی را اضطراری نشان می‌دهد؛ متن خام انگلیسی هرگز منتشر نمی‌شود."""
     messages = [m for items in grouped_messages.values() for m in items]
     messages.sort(key=lambda m: (m.views + 3 * m.forwards, m.date.timestamp()), reverse=True)
     result = []
-    selected_messages = messages if limit <= 0 else messages[:limit]
-    for message in selected_messages:
+    for message in messages:
+        persian_chars = len(re.findall(r"[آ-ی]", message.text))
+        latin_chars = len(re.findall(r"[A-Za-z]", message.text))
+        if persian_chars < 20 or persian_chars < latin_chars:
+            continue
         result.append({
             "title": "پیام مهم برای بررسی بیشتر",
             "summary": message.text[:900],
-            "why_important": "سرویس تحلیل هوش مصنوعی موقتاً در دسترس نبود؛ متن اصلی بدون ادعای تحلیل تکمیلی نمایش داده می‌شود.",
-            "key_points": [],
-            "actions": [],
-            "score": 1,
+            "why_important": "این پیام از منابع بازه انتخاب‌شده جدا شده است؛ تحلیل عمیق هوش مصنوعی موقتاً در دسترس نبود.",
+            "key_points": [], "actions": [], "score": 1,
             "sources": [{"channel": message.channel, "message_id": message.message_id}],
         })
+        if limit > 0 and len(result) >= limit:
+            break
     return result
 
 
@@ -351,6 +365,8 @@ async def analyze_messages(
     try:
         merged = await asyncio.to_thread(call_model, merge_prompt(candidates, category, lang))
         merged_stories = normalize_stories(merged, valid_sources)
+        if not merged_stories:
+            return candidates if MAX_STORIES <= 0 else candidates[:MAX_STORIES]
         return merged_stories if MAX_STORIES <= 0 else merged_stories[:MAX_STORIES]
     except Exception as exc:
         # اگر مرحله ادغام سرویس مدل 500 داد، گزارش نباید صفر شود.
@@ -425,7 +441,7 @@ def format_story(story: dict[str, Any], rank: int, category: str, lang: str = "f
         ])
     lines.extend([
         "",
-        "<blockquote>" + rtl(f"➤ {FOOTER}") + "</blockquote>",
+        FOOTER,
     ])
     return "\n".join(lines)
 
