@@ -40,8 +40,9 @@ XKIRO_API_KEY = env_str("XKIRO_API_KEY")
 API_BASE_URL = env_str("API_BASE_URL").rstrip("/")
 XKIRO_MODEL = env_str("DEFAULT_MODEL", "deepseek/deepseek-v4-pro")
 HOURS_WINDOW = env_int("HOURS_WINDOW", 24)
-MAX_MESSAGES_PER_CHANNEL = env_int("MAX_MESSAGES_PER_CHANNEL", 500)
-MAX_STORIES = env_int("MAX_STORIES", 100)
+MAX_HOURS = 720
+MAX_MESSAGES_PER_CHANNEL = env_int("MAX_MESSAGES_PER_CHANNEL", 2000)
+MAX_STORIES = env_int("MAX_STORIES", 0)  # 0 یعنی بدون سقف مصنوعی
 BATCH_CHAR_LIMIT = env_int("BATCH_CHAR_LIMIT", 22_000)
 
 SECURITY_CHANNELS = [
@@ -145,7 +146,7 @@ def make_batches(messages: Iterable[ChannelMessage]) -> list[list[ChannelMessage
     current: list[ChannelMessage] = []
     current_size = 0
     for message in messages:
-        size = len(message.text[:3500]) + 180
+        size = len(message.text[:2200]) + 220
         if current and current_size + size > BATCH_CHAR_LIMIT:
             batches.append(current)
             current, current_size = [], 0
@@ -208,17 +209,17 @@ def call_model(prompt: str, temperature: float = 0.15) -> Any:
             logger.warning("تلاش %s برای مدل ناموفق بود: %s", attempt + 1, exc)
             if attempt < 2:
                 import time
-                time.sleep(2 ** attempt)
+                time.sleep(3 * (attempt + 1))
     raise RuntimeError("مدل پس از سه تلاش پاسخ معتبر نداد") from last_error
 
 
 def shortlist_prompt(messages: list[ChannelMessage], category: str, lang: str = "fa") -> str:
-    field = "AI" if category == "ai" else "cybersecurity" if lang == "en" else ("هوش مصنوعی" if category == "ai" else "امنیت سایبری")
-    output_language = "English" if lang == "en" else "Persian"
+    field = "هوش مصنوعی" if category == "ai" else "امنیت سایبری"
+    output_language = "فارسی"
     sources = "\n\n".join(message.prompt_block() for message in messages)
-    return f"""This is a deep news screening stage for {field}. Write every output field in {output_language}.
+    return f"""این یک مرحله غربال‌گری عمیق خبر در حوزه {field} است. همه فیلدهای خروجی را به زبان {output_language} بنویس.
 همه منابع زیر را دقیق بخوان. تبلیغ، بازنشر تکراری، شایعه بی‌سند، متن انگیزشی و خبر کم‌اثر را حذف کن.
-تمام رویدادهای واقعاً مهم را انتخاب کن (حداکثر 30 مورد برای هر دسته ورودی و بدون حذف مورد مهم). اهمیت را با تازگی، اثر عملی، اعتبار منبع، گستره اثر و شواهد بسنج.
+تمام رویدادهای واقعاً مهم را انتخاب کن؛ هیچ سقف عددی برای خبرهای مهم نگذار. تبلیغات، اسپم، بازنشر بی‌ارزش و موارد کم‌اهمیت را حذف کن، اما هر ابزار جدید، به‌روزرسانی مهم، آسیب‌پذیری، قابلیت کاربردی یا خبر ارزشمند را نگه دار. اهمیت را با تازگی، اثر عملی، اعتبار منبع، گستره اثر و شواهد بسنج.
 اگر چند پیام درباره یک رویدادند، آن‌ها را یک مورد کن و همه شناسه‌های منبع مرتبط را نگه دار.
 هیچ واقعیتی خارج از متن اضافه نکن. خروجی فقط آرایه JSON با این ساختار باشد:
 [
@@ -239,10 +240,10 @@ score عدد صحیح 0 تا 100 است. اگر چیزی مهم نیست، [] ب
 
 
 def merge_prompt(candidates: list[dict[str, Any]], category: str, lang: str = "fa") -> str:
-    field = "AI" if category == "ai" else "cybersecurity" if lang == "en" else ("هوش مصنوعی" if category == "ai" else "امنیت سایبری")
-    output_language = "English" if lang == "en" else "Persian"
-    return f"""Review these candidate stories in {field}. Return every field in {output_language}.
-آن‌ها را دوباره با سخت‌گیری بررسی کن: موارد مشابه را ادغام کن، ادعاهای ضعیف را پایین ببر و حداکثر {MAX_STORIES} خبر مهم را به ترتیب score نزولی برگردان.
+    field = "هوش مصنوعی" if category == "ai" else "امنیت سایبری"
+    output_language = "فارسی"
+    return f"""نامزدهای خبری حوزه {field} را بررسی کن و همه فیلدها را به زبان {output_language} برگردان.
+آن‌ها را دوباره با سخت‌گیری بررسی کن: موارد مشابه را ادغام کن، ادعاهای ضعیف و تبلیغاتی را حذف کن و همه خبرهای مهم باقی‌مانده را به ترتیب score نزولی برگردان. هیچ سقف عددی برای خروجی نگذار.
 فارسی را روان، حرفه‌ای و بدون اغراق بنویس. title، summary، why_important، key_points، actions، score و sources را حفظ کن.
 منابع ساختگی ممنوع است و sources فقط باید از ورودی باشد. خروجی فقط آرایه JSON معتبر باشد.
 
@@ -294,6 +295,29 @@ def normalize_stories(data: Any, valid_sources: set[tuple[str, int]]) -> list[di
     return sorted(stories, key=lambda x: x["score"], reverse=True)
 
 
+
+def fallback_stories(
+    grouped_messages: dict[str, list[ChannelMessage]],
+    limit: int = MAX_STORIES,
+) -> list[dict[str, Any]]:
+    """خروجی اضطراری قابل‌استفاده وقتی سرویس مدل موقتاً 500 می‌دهد."""
+    messages = [m for items in grouped_messages.values() for m in items]
+    messages.sort(key=lambda m: (m.views + 3 * m.forwards, m.date.timestamp()), reverse=True)
+    result = []
+    selected_messages = messages if limit <= 0 else messages[:limit]
+    for message in selected_messages:
+        result.append({
+            "title": "پیام مهم برای بررسی بیشتر",
+            "summary": message.text[:900],
+            "why_important": "سرویس تحلیل هوش مصنوعی موقتاً در دسترس نبود؛ متن اصلی بدون ادعای تحلیل تکمیلی نمایش داده می‌شود.",
+            "key_points": [],
+            "actions": [],
+            "score": 1,
+            "sources": [{"channel": message.channel, "message_id": message.message_id}],
+        })
+    return result
+
+
 async def analyze_messages(
     grouped_messages: dict[str, list[ChannelMessage]], category: str, lang: str = "fa"
 ) -> list[dict[str, Any]]:
@@ -318,18 +342,20 @@ async def analyze_messages(
             continue
         candidates.extend(normalize_stories(result, valid_sources))
     if not candidates:
-        return []
+        logger.warning("هیچ نامزد معتبری از مدل دریافت نشد؛ fallback فعال شد")
+        return fallback_stories(grouped_messages)
 
     candidates = sorted(
         candidates, key=lambda item: item.get("score", 0), reverse=True
-    )[:40]
+    )
     try:
         merged = await asyncio.to_thread(call_model, merge_prompt(candidates, category, lang))
-        return normalize_stories(merged, valid_sources)[:MAX_STORIES]
+        merged_stories = normalize_stories(merged, valid_sources)
+        return merged_stories if MAX_STORIES <= 0 else merged_stories[:MAX_STORIES]
     except Exception as exc:
         # اگر مرحله ادغام سرویس مدل 500 داد، گزارش نباید صفر شود.
         logger.error("ادغام ناموفق بود؛ نامزدهای معتبر استفاده می‌شوند: %s", exc)
-        return candidates[:MAX_STORIES]
+        return candidates if MAX_STORIES <= 0 else candidates[:MAX_STORIES]
 
 
 def rtl(value: str) -> str:
@@ -340,10 +366,6 @@ def rtl(value: str) -> str:
 def format_date_header(hours: int, total_messages: int, active_channels: int, lang: str = "fa") -> str:
     now = datetime.now(TEHRAN_TZ) if TEHRAN_TZ else datetime.now()
     since = now - timedelta(hours=hours)
-    if lang == "en":
-        return ("🗞 <b>TeleBrief Intelligence Briefing</b>\n\n"
-                f"<blockquote>Window: {since.strftime('%Y/%m/%d %H:%M')} to {now.strftime('%Y/%m/%d %H:%M')}\n"
-                f"Scanned: {total_messages} messages from {active_channels} active channels</blockquote>")
     return "\n".join([
         rtl("🗞 <b>گزارش تحلیلی TeleBrief</b>"), "",
         "<blockquote>" + rtl(f"بازه بررسی: {html.escape(since.strftime('%Y/%m/%d %H:%M'))} تا {html.escape(now.strftime('%Y/%m/%d %H:%M'))}") + "\n" + rtl(f"پیام‌های بررسی‌شده: {total_messages} پیام از {active_channels} کانال فعال") + "</blockquote>",
@@ -352,8 +374,6 @@ def format_date_header(hours: int, total_messages: int, active_channels: int, la
 
 def format_story(story: dict[str, Any], rank: int, category: str, lang: str = "fa") -> str:
     icon = "🤖" if category == "ai" else "🛡"
-    if lang == "en":
-        return format_story_en(story, rank, category)
     # هر پاراگراف با یک عبارت فارسی آغاز می‌شود تا تلگرام جهت RTL را اشتباه نکند.
     lines = [
         rtl(f"{icon} <b>{rank}. گزارش: {html.escape(story['title'])}</b>"),
@@ -441,6 +461,8 @@ async def prepare_digest(
 ) -> dict[str, Any]:
     """همه کانال‌های دسته را می‌خواند و کل خبرهای مهم را برای صفحه‌بندی برمی‌گرداند."""
     validate_config()
+    if not 1 <= hours <= MAX_HOURS:
+        raise ValueError(f"بازه باید بین ۱ تا {MAX_HOURS} ساعت باشد.")
     base_channels = AI_CHANNELS if category == "ai" else SECURITY_CHANNELS
     extra_channels = extra_channels or []
     channels = list(dict.fromkeys(base_channels + extra_channels))
