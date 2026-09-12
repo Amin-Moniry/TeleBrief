@@ -17,8 +17,6 @@ from digest_core import (
     HOURS_WINDOW,
 )
 
-print("DEBUG len(BOT_TOKEN):", len(BOT_TOKEN))
-
 # ============ مدیریت وضعیت کاربران ============
 
 STATE_FILE = "bot_state.json"
@@ -185,12 +183,10 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "📖 **راهنمای استفاده از TeleBrief**\n\n"
             "**نحوه کار:**\n"
             "1️⃣ دسته مورد نظر (AI یا Security) را انتخاب کنید\n"
-            "2️⃣ ربات کانال‌های معتبر را بررسی می‌کند\n"
-            "3️⃣ پیام‌های 12 ساعت گذشته را جمع‌آوری می‌کند\n"
-            "4️⃣ با هوش مصنوعی، مهم‌ترین اخبار را انتخاب می‌کند\n"
-            "5️⃣ خلاصه هر خبر به همراه لینک مستقیم ارسال می‌شود\n"
-            "6️⃣ اگر خبر خاصی نبود، خلاصه کلی محتوای روز ارائه می‌شود\n\n"
-            "**کانال‌های بررسی شده:**\n"
+            "2️⃣ ربات تمامی پیام‌های ۱۲ ساعت اخیر کانال‌ها را استخراج می‌کند\n"
+            "3️⃣ مکالمات و رخدادهای هر کانال به صورت پیوسته و عمیق تحلیل می‌شوند\n"
+            "4️⃣ برای هر کانال، گزارشی ساختاریافته (شامل موضوعات کلیدی، یافته‌ها، اقدامات و چالش‌های باز) ارسال می‌شود\n\n"
+            "**کانال‌های تحت پوشش:**\n"
             "🤖 AI: 10 کانال (digiai, RoidBest, Farda_Ai و...)\n"
             "🔒 Security: 6 کانال (thehackernews, cibsecurity و...)\n\n"
             "**دستورات:**\n"
@@ -223,9 +219,9 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # ویرایش پیام به حالت "در حال پردازش"
     processing_msg = await query.edit_message_text(
-        f"⏳ در حال بررسی کانال‌های {category_name}...\n\n"
-        f"🔍 در حال جستجو در صدها پیام...\n"
-        f"🤖 تحلیل هوشمند اخبار...\n\n"
+        f"⏳ در حال پردازش کانال‌های {category_name}...\n\n"
+        f"🔍 دریافت و مرتب‌سازی تمامی پیام‌های ۱۲ ساعت اخیر...\n"
+        f"🤖 تحلیل عمیق و خلاصه‌سازی ساختاریافته به تفکیک کانال...\n\n"
         f"⏱️ لطفاً چند لحظه صبر کنید..."
     )
 
@@ -239,15 +235,15 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # ارسال پیام موفقیت با دکمه بازگشت
         await context.bot.send_message(
             chat_id,
-            f"✅ {picks_count} خبر {category_name} با موفقیت ارسال شد!\n\n"
-            f"👇 برای دریافت اخبار دسته دیگر، به منو برگردید:",
+            f"✅ خلاصه تحلیلی {picks_count} کانال فعال {category_name} با موفقیت ارسال شد!\n\n"
+            f"👇 برای دریافت گزارش دسته دیگر، به منو برگردید:",
             reply_markup=get_back_to_menu_keyboard(),
         )
 
         # حذف پیام "در حال پردازش"
         await processing_msg.delete()
 
-        print(f"✅ {picks_count} خبر {category} برای کاربر {user_id} ارسال شد.")
+        print(f"✅ خلاصه {picks_count} کانال {category} برای کاربر {user_id} ارسال شد.")
         update_user_interaction(user_id)
 
     except Exception as e:
