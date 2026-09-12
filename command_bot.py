@@ -242,7 +242,7 @@ async def animate_loading(status_message, category_name: str, hours: int) -> Non
             completed = "●" * stage_index + "○" * (len(LOADING_STAGES) - stage_index)
             await status_message.edit_text(
                 "🔍 <b>گزارش هوشمند | TeleBrief</b>\n"
-                f"<i>بخش: {category_name}</i>\n\n"
+                f"\n<i>بخش: {category_name}</i>\n\n"
                 f"<blockquote>بازه زمانی: {hours} ساعت اخیر\n"
                 f"مرحله فعلی: {stage}\n"
                 f"پیشرفت: {completed}                 {frame}</blockquote>\n\n"
