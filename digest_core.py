@@ -41,12 +41,17 @@ BOT_TOKEN = env_str("BOT_TOKEN")
 XKIRO_API_KEY = env_str("XKIRO_API_KEY")
 API_BASE_URL = env_str("API_BASE_URL").rstrip("/")
 XKIRO_MODEL = env_str("DEFAULT_MODEL", "deepseek/deepseek-v4-pro")
+FALLBACK_MODEL = env_str("FALLBACK_MODEL", "mistralai/mistral-medium-3.5")
+GEMINI_API_KEY = env_str("GEMINI_API_KEY")
+GEMINI_MODEL = env_str("GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai"
 HOURS_WINDOW = env_int("HOURS_WINDOW", 24)
 MAX_HOURS = 720
 MAX_MESSAGES_PER_CHANNEL = env_int("MAX_MESSAGES_PER_CHANNEL", 2000)
 MAX_STORIES = env_int("MAX_STORIES", 0)  # 0 یعنی بدون سقف مصنوعی
 BATCH_CHAR_LIMIT = env_int("BATCH_CHAR_LIMIT", 12_000)
 MODEL_RETRIES = max(1, min(env_int("MODEL_RETRIES", 3), 3))
+PRIMARY_MODEL_RETRIES = max(1, min(env_int("PRIMARY_MODEL_RETRIES", 1), 3))
 MODEL_TIMEOUT = max(20, env_int("MODEL_TIMEOUT", 90))
 ANALYSIS_CONCURRENCY = max(1, env_int("ANALYSIS_CONCURRENCY", 1))
 
@@ -180,20 +185,31 @@ def extract_json(raw: str) -> Any:
         raise
 
 
-def call_model(prompt: str, temperature: float = 0.15) -> Any:
+def call_model(
+    prompt: str,
+    temperature: float = 0.15,
+    model: str | None = None,
+    retries: int | None = None,
+    base_url: str | None = None,
+    api_key: str | None = None,
+) -> Any:
     """Call the model with bounded retries so the bot never appears stuck forever."""
+    model = model or XKIRO_MODEL
+    retries = MODEL_RETRIES if retries is None else max(1, retries)
+    base_url = base_url or API_BASE_URL
+    api_key = api_key or XKIRO_API_KEY
     last_error: Exception | None = None
     retryable_statuses = {408, 409, 425, 429, 500, 502, 503, 504}
-    for attempt in range(MODEL_RETRIES):
+    for attempt in range(retries):
         try:
             response = requests.post(
-                f"{API_BASE_URL}/chat/completions",
+                f"{base_url}/chat/completions",
                 headers={
-                    "Authorization": f"Bearer {XKIRO_API_KEY}",
+                    "Authorization": f"Bearer {api_key}",
                     "Content-Type": "application/json",
                 },
                 json={
-                    "model": XKIRO_MODEL,
+                    "model": model,
                     "temperature": temperature,
                     "messages": [
                         {
@@ -209,7 +225,7 @@ def call_model(prompt: str, temperature: float = 0.15) -> Any:
                 timeout=MODEL_TIMEOUT,
             )
             if not response.ok:
-                logger.warning("مدل پاسخ %s داد: %s", response.status_code, response.text[:500])
+                logger.warning("مدل %s پاسخ %s داد: %s", model, response.status_code, response.text[:500])
             response.raise_for_status()
             raw = response.json()["choices"][0]["message"]["content"]
             return extract_json(raw)
@@ -218,10 +234,10 @@ def call_model(prompt: str, temperature: float = 0.15) -> Any:
             status = getattr(getattr(exc, "response", None), "status_code", None)
             retryable = status is None or status in retryable_statuses
             logger.warning(
-                "تلاش %s از %s برای مدل ناموفق بود: %s",
-                attempt + 1, MODEL_RETRIES, exc,
+                "تلاش %s از %s برای مدل %s ناموفق بود: %s",
+                attempt + 1, retries, model, exc,
             )
-            if attempt + 1 >= MODEL_RETRIES or not retryable:
+            if attempt + 1 >= retries or not retryable:
                 break
             retry_after = None
             response_obj = getattr(exc, "response", None)
@@ -235,8 +251,39 @@ def call_model(prompt: str, temperature: float = 0.15) -> Any:
             delay = max(0.5, min(delay, 15))
             time.sleep(delay + random.uniform(0.2, 0.8))
     raise RuntimeError(
-        f"سرویس مدل پس از {MODEL_RETRIES} تلاش هنوز در دسترس نیست"
+        f"سرویس مدل {model} پس از {retries} تلاش هنوز در دسترس نیست"
     ) from last_error
+
+
+def call_model_with_fallback(prompt: str, temperature: float = 0.15) -> Any:
+    """سه لایه تلاش می‌کند: مدل اصلی روی xKiro (فقط یک تلاش سریع)، سپس مدل
+    جایگزین روی xKiro (با retry کامل)، و در آخر—اگر تنظیم شده باشد—مستقیم
+    Gemini روی Google AI Studio که کاملاً مستقل از xKiro است. فقط وقتی هر سه
+    شکست بخورند، خطا بالا می‌رود."""
+    chain = [
+        (XKIRO_MODEL, PRIMARY_MODEL_RETRIES, API_BASE_URL, XKIRO_API_KEY),
+    ]
+    if FALLBACK_MODEL and FALLBACK_MODEL != XKIRO_MODEL:
+        chain.append((FALLBACK_MODEL, MODEL_RETRIES, API_BASE_URL, XKIRO_API_KEY))
+    if GEMINI_API_KEY:
+        chain.append((GEMINI_MODEL, MODEL_RETRIES, GEMINI_BASE_URL, GEMINI_API_KEY))
+
+    last_exc: Exception | None = None
+    for index, (model, retries, base_url, api_key) in enumerate(chain):
+        try:
+            if index > 0:
+                logger.warning("سوییچ سریع به مدل جایگزین (%s)", model)
+            return call_model(
+                prompt, temperature, model=model, retries=retries,
+                base_url=base_url, api_key=api_key,
+            )
+        except Exception as exc:
+            last_exc = exc
+    tried = ", ".join(m for m, *_ in chain)
+    raise RuntimeError(
+        f"هیچ‌کدام از مدل‌های تنظیم‌شده ({tried}) در دسترس نیستند؛ "
+        "لطفاً چند دقیقه دیگر دوباره تلاش کنید."
+    ) from last_exc
 
 
 def shortlist_prompt(messages: list[ChannelMessage], category: str, lang: str = "fa") -> str:
@@ -384,7 +431,7 @@ async def analyze_messages(
         async with semaphore:
             try:
                 raw = await asyncio.to_thread(
-                    call_model, shortlist_prompt(batch, category, lang)
+                    call_model_with_fallback, shortlist_prompt(batch, category, lang)
                 )
                 return True, normalize_stories(raw, valid_sources)
             except Exception as exc:
@@ -413,7 +460,7 @@ async def analyze_messages(
         candidates, key=lambda item: item.get("score", 0), reverse=True
     )
     try:
-        merged = await asyncio.to_thread(call_model, merge_prompt(candidates, category, lang))
+        merged = await asyncio.to_thread(call_model_with_fallback, merge_prompt(candidates, category, lang))
         merged_stories = normalize_stories(merged, valid_sources)
         if not merged_stories:
             return candidates if MAX_STORIES <= 0 else candidates[:MAX_STORIES]
