@@ -46,10 +46,7 @@ MAX_HOURS = 720
 MAX_MESSAGES_PER_CHANNEL = env_int("MAX_MESSAGES_PER_CHANNEL", 2000)
 MAX_STORIES = env_int("MAX_STORIES", 0)  # 0 یعنی بدون سقف مصنوعی
 BATCH_CHAR_LIMIT = env_int("BATCH_CHAR_LIMIT", 12_000)
-MODEL_RETRIES = max(1, env_int("MODEL_RETRIES", 4))
-FALLBACK_MODELS = [
-    name.strip() for name in env_str("FALLBACK_MODELS").split(",") if name.strip()
-]
+MODEL_RETRIES = max(1, env_int("MODEL_RETRIES", 6))
 ANALYSIS_CONCURRENCY = max(1, env_int("ANALYSIS_CONCURRENCY", 1))
 
 SECURITY_CHANNELS = [
@@ -182,26 +179,8 @@ def extract_json(raw: str) -> Any:
         raise
 
 
-def model_chain() -> list[str]:
-    """Primary model first, then optional FALLBACK_MODELS, without duplicates."""
-    return list(dict.fromkeys([XKIRO_MODEL, *FALLBACK_MODELS]))
-
-
 def call_model(prompt: str, temperature: float = 0.15) -> Any:
-    """Try each configured model; 429/5xx are transient and must back off."""
-    last_error: Exception | None = None
-    for model in model_chain():
-        try:
-            return call_single_model(model, prompt, temperature)
-        except Exception as exc:
-            last_error = exc
-            logger.warning("مدل %s پاسخ معتبر نداد: %s", model, exc)
-    raise RuntimeError(
-        "سرویس مدل روی همه مدل‌های تنظیم‌شده در دسترس نیست"
-    ) from last_error
-
-
-def call_single_model(model: str, prompt: str, temperature: float) -> Any:
+    """Call the model conservatively; 429/5xx are transient and must back off."""
     last_error: Exception | None = None
     retryable_statuses = {408, 409, 425, 429, 500, 502, 503, 504}
     for attempt in range(MODEL_RETRIES):
@@ -213,7 +192,7 @@ def call_single_model(model: str, prompt: str, temperature: float) -> Any:
                     "Content-Type": "application/json",
                 },
                 json={
-                    "model": model,
+                    "model": XKIRO_MODEL,
                     "temperature": temperature,
                     "messages": [
                         {
@@ -238,8 +217,8 @@ def call_single_model(model: str, prompt: str, temperature: float) -> Any:
             status = getattr(getattr(exc, "response", None), "status_code", None)
             retryable = status is None or status in retryable_statuses
             logger.warning(
-                "تلاش %s از %s برای مدل %s ناموفق بود: %s",
-                attempt + 1, MODEL_RETRIES, model, exc,
+                "تلاش %s از %s برای مدل ناموفق بود: %s",
+                attempt + 1, MODEL_RETRIES, exc,
             )
             if attempt + 1 >= MODEL_RETRIES or not retryable:
                 break
@@ -248,12 +227,12 @@ def call_single_model(model: str, prompt: str, temperature: float) -> Any:
             if response_obj is not None:
                 retry_after = response_obj.headers.get("Retry-After")
             try:
-                delay = float(retry_after) if retry_after else min(20, 3 * (2 ** attempt))
+                delay = float(retry_after) if retry_after else min(45, 3 * (2 ** attempt))
             except (TypeError, ValueError):
-                delay = min(20, 3 * (2 ** attempt))
+                delay = min(45, 3 * (2 ** attempt))
             time.sleep(delay + random.uniform(0.2, 1.2))
     raise RuntimeError(
-        f"مدل {model} پس از {MODEL_RETRIES} تلاش پاسخ معتبر نداد"
+        f"سرویس مدل پس از {MODEL_RETRIES} تلاش هنوز در دسترس نیست"
     ) from last_error
 
 
@@ -398,32 +377,16 @@ async def analyze_messages(
     batches = make_batches(all_messages)
     semaphore = asyncio.Semaphore(ANALYSIS_CONCURRENCY)
 
-    async def analyze_chunk(
-        batch: list[ChannelMessage], depth: int = 0
-    ) -> tuple[bool, list[dict[str, Any]]]:
-        """A rejected chunk is retried in halves; a big payload often fails alone."""
-        try:
-            raw = await asyncio.to_thread(
-                call_model, shortlist_prompt(batch, category, lang)
-            )
-            return True, normalize_stories(raw, valid_sources)
-        except Exception as exc:
-            logger.error("یک دسته (%s پیام) تحلیل نشد: %s", len(batch), exc)
-            if len(batch) < 2 or depth >= 3:
-                return False, []
-            middle = len(batch) // 2
-            logger.info("دسته به دو نیمه کوچک‌تر تقسیم و دوباره تحلیل می‌شود")
-            succeeded = False
-            stories: list[dict[str, Any]] = []
-            for half in (batch[:middle], batch[middle:]):
-                half_ok, half_stories = await analyze_chunk(half, depth + 1)
-                succeeded = succeeded or half_ok
-                stories.extend(half_stories)
-            return succeeded, stories
-
     async def analyze_batch(batch: list[ChannelMessage]) -> tuple[bool, list[dict[str, Any]]]:
         async with semaphore:
-            return await analyze_chunk(batch)
+            try:
+                raw = await asyncio.to_thread(
+                    call_model, shortlist_prompt(batch, category, lang)
+                )
+                return True, normalize_stories(raw, valid_sources)
+            except Exception as exc:
+                logger.error("یک دسته تحلیل نشد: %s", exc)
+                return False, []
 
     tasks = [analyze_batch(batch) for batch in batches]
     results = await asyncio.gather(*tasks)
