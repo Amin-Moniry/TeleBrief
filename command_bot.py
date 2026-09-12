@@ -222,7 +222,6 @@ async def send_story_page(
     return end - start, len(stories) - end
 
 
-LOADING_FRAMES = ("⣾", "⣽", "⣻", "⢿")
 LOADING_STAGES = (
     "اتصال به منابع معتبر",
     "استخراج پیام‌های مهم",
@@ -232,12 +231,11 @@ LOADING_STAGES = (
 
 
 async def animate_loading(status_message, category_name: str, hours: int) -> None:
-    """لودینگ داشبوردی: قاب ثابت، مرحله متغیر، اسپینر در انتهای وضعیت."""
-    frame_index = 0
+    """لودینگ داشبوردی: قاب ثابت، مرحله متغیر، بدون اسپینر."""
+    tick = 0
     stage_index = 0
     try:
         while True:
-            frame = LOADING_FRAMES[frame_index % len(LOADING_FRAMES)]
             stage = LOADING_STAGES[stage_index % len(LOADING_STAGES)]
             completed = "●" * stage_index + "○" * (len(LOADING_STAGES) - stage_index)
             await status_message.edit_text(
@@ -245,13 +243,12 @@ async def animate_loading(status_message, category_name: str, hours: int) -> Non
                 f"\n<i>بخش: {category_name}</i>\n\n"
                 f"<blockquote>بازه زمانی: {hours} ساعت اخیر\n"
                 f"مرحله فعلی: {stage}\n"
-                f"پیشرفت: {completed}\n"
-                f"{frame}</blockquote>\n\n"
+                f"پیشرفت: {completed}</blockquote>\n\n"
                 "🧠 در حال بررسی دقیق پیام‌ها هستم؛ موارد ارزشمند جدا می‌شوند.",
                 parse_mode=ParseMode.HTML,
             )
-            frame_index += 1
-            if frame_index % 4 == 0:
+            tick += 1
+            if tick % 4 == 0:
                 stage_index = (stage_index + 1) % len(LOADING_STAGES)
             await asyncio.sleep(0.8)
     except asyncio.CancelledError:
