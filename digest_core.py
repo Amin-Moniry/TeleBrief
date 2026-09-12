@@ -466,45 +466,42 @@ def format_currency_digest(
     readings: dict[str, dict[str, Any]], total_messages: int, active_channels: int
 ) -> str:
     now = datetime.now(TEHRAN_TZ) if TEHRAN_TZ else datetime.now()
-    lines = [
-        rtl("💵 <b>نرخ لحظه‌ای دلار و طلا | TeleBrief</b>"),
-        "",
-        "<blockquote>" + rtl(f"به‌روزرسانی گزارش: {html.escape(now.strftime('%Y/%m/%d %H:%M'))}") + "</blockquote>",
-    ]
+    header = rtl("💵 <b>نرخ لحظه‌ای دلار و طلا | TeleBrief</b>")
+
     if not readings:
-        lines.extend([
-            "",
+        return "\n".join([
+            header, "",
             rtl("در این بازه هیچ قیمتی از کانال‌های ارز پیدا نشد؛ کمی بعد دوباره امتحان کن."),
             "", FOOTER,
         ])
-        return "\n".join(lines)
 
+    body_lines = [
+        rtl(f"⏱ به‌روزرسانی: {html.escape(now.strftime('%Y/%m/%d %H:%M'))}"),
+        "",
+    ]
+    source_links: list[str] = []
     for key, (icon, title) in CURRENCY_ITEM_LABELS.items():
         entry = readings.get(key)
-        lines.append("")
         if not entry:
-            lines.append(
-                "<blockquote>"
-                + rtl(f"{icon} <b>{title}</b>") + "\n"
-                + rtl("در این بازه به‌روزرسانی‌ای پیدا نشد.")
-                + "</blockquote>"
-            )
+            body_lines.append(rtl(f"{icon} {title}: به‌روزرسانی‌ای در این بازه پیدا نشد."))
             continue
         message = entry["message"]
+        price = html.escape(normalize_toman_price(entry["price"]))
+        age = persian_time_ago(message.date)
+        body_lines.append(rtl(f"{icon} {title}: ") + f"<code>{price}</code>" + rtl(f"  ({age})"))
         channel = html.escape(message.channel)
-        card = "\n".join([
-            rtl(f"{icon} <b>{title}</b>"),
-            f"<code>{html.escape(normalize_toman_price(entry['price']))}</code>",
-            rtl(f"⏱ {persian_time_ago(message.date)}") + " · " + rtl("منبع: ") + f'<a href="{message.url}">@{channel}</a>',
-        ])
-        lines.append("<blockquote>" + card + "</blockquote>")
+        source_links.append(f'<a href="{message.url}">@{channel}</a>')
+    if source_links:
+        body_lines.extend(["", rtl("منبع‌ها: ") + " · ".join(source_links)])
 
-    lines.extend([
+    return "\n".join([
+        header, "",
+        "<blockquote>" + "\n".join(body_lines) + "</blockquote>",
         "",
         f"<code>{html.escape(f'بر اساس {total_messages} پیام از {active_channels} کانال بررسی‌شده')}</code>",
+        "",
+        FOOTER,
     ])
-    lines.extend(["", FOOTER])
-    return "\n".join(lines)
 
 
 async def prepare_currency_digest() -> dict[str, Any]:
