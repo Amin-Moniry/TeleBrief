@@ -1,313 +1,233 @@
-import os
-import json
 import asyncio
+import html
+import logging
+from collections import defaultdict
 from datetime import datetime
+from pathlib import Path
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import (
-    Application,
-    CommandHandler,
-    CallbackQueryHandler,
-    ContextTypes,
-)
+from telegram import BotCommand, InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.constants import ParseMode
+from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes
 
-from digest_core import (
-    run_digest,
-    BOT_TOKEN,
-    HOURS_WINDOW,
-)
+from digest_core import BOT_TOKEN, HOURS_WINDOW, run_digest
 
-# ============ مدیریت وضعیت کاربران ============
-
-STATE_FILE = "bot_state.json"
+APP_NAME = "TeleBrief"
+STATE_FILE = Path("bot_state.json")
+logger = logging.getLogger(__name__)
+user_locks: dict[int, asyncio.Lock] = defaultdict(asyncio.Lock)
 
 
-def load_state():
-    """بارگذاری وضعیت از فایل"""
-    if os.path.exists(STATE_FILE):
-        try:
-            with open(STATE_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception as e:
-            print(f"خطا در خواندن state file: {e}")
-            return {"users": {}}
-    return {"users": {}}
-
-
-def save_state(state):
-    """ذخیره وضعیت در فایل"""
+def load_state() -> dict:
+    if not STATE_FILE.exists():
+        return {"users": {}}
     try:
-        with open(STATE_FILE, "w", encoding="utf-8") as f:
-            json.dump(state, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        print(f"خطا در ذخیره state file: {e}")
+        import json
+        return json.loads(STATE_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        logger.exception("خواندن فایل وضعیت ناموفق بود")
+        return {"users": {}}
 
 
-def is_first_time_user(user_id):
-    """بررسی اینکه آیا کاربر برای اولین بار است"""
+def save_state(state: dict) -> None:
+    """ذخیره اتمیک برای جلوگیری از خراب‌شدن فایل وضعیت."""
+    import json
+    temp_file = STATE_FILE.with_suffix(".tmp")
+    try:
+        temp_file.write_text(
+            json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        temp_file.replace(STATE_FILE)
+    except OSError:
+        logger.exception("ذخیره فایل وضعیت ناموفق بود")
+
+
+def touch_user(user_id: int) -> bool:
     state = load_state()
-    user_id_str = str(user_id)
-    return user_id_str not in state.get("users", {})
-
-
-def mark_user_as_seen(user_id):
-    """علامت‌گذاری کاربر به عنوان دیده شده"""
-    state = load_state()
-    if "users" not in state:
-        state["users"] = {}
-
-    user_id_str = str(user_id)
-    state["users"][user_id_str] = {
-        "first_seen": datetime.now().isoformat(),
-        "last_interaction": datetime.now().isoformat(),
-    }
+    users = state.setdefault("users", {})
+    key = str(user_id)
+    is_new = key not in users
+    now = datetime.now().isoformat(timespec="seconds")
+    users.setdefault(key, {"first_seen": now})["last_interaction"] = now
     save_state(state)
+    return is_new
 
 
-def update_user_interaction(user_id):
-    """به‌روزرسانی زمان آخرین تعامل کاربر"""
-    state = load_state()
-    user_id_str = str(user_id)
-
-    if "users" not in state:
-        state["users"] = {}
-
-    if user_id_str in state["users"]:
-        state["users"][user_id_str]["last_interaction"] = datetime.now().isoformat()
-    else:
-        state["users"][user_id_str] = {
-            "first_seen": datetime.now().isoformat(),
-            "last_interaction": datetime.now().isoformat(),
-        }
-
-    save_state(state)
-
-
-# ============ ساخت دکمه‌های منو ============
-
-
-def get_main_menu_keyboard():
-    """دکمه‌های منوی اصلی"""
-    keyboard = [
+def main_menu_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("🤖 اخبار هوش مصنوعی", callback_data="news_ai"),
-            InlineKeyboardButton("🔒 اخبار امنیت سایبری", callback_data="news_security"),
+            InlineKeyboardButton("🤖 هوش مصنوعی", callback_data="digest:ai"),
+            InlineKeyboardButton("🛡 امنیت سایبری", callback_data="digest:security"),
         ],
         [
-            InlineKeyboardButton("ℹ️ راهنما", callback_data="help"),
+            InlineKeyboardButton("📖 راهنما", callback_data="page:help"),
+            InlineKeyboardButton("ℹ️ درباره ربات", callback_data="page:about"),
         ],
-    ]
-    return InlineKeyboardMarkup(keyboard)
+    ])
 
 
-def get_back_to_menu_keyboard():
-    """دکمه بازگشت به منو"""
-    keyboard = [[InlineKeyboardButton("🔙 بازگشت به منو", callback_data="main_menu")]]
-    return InlineKeyboardMarkup(keyboard)
+def back_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🏠 بازگشت به منوی اصلی", callback_data="page:menu")]
+    ])
 
 
-# ============ هندلرهای دستورات ============
-
-
-async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """هندلر دستور /start"""
-    user_id = update.effective_user.id
-    user_name = update.effective_user.first_name
-
-    print(f"📩 دستور /start از کاربر {user_id} ({user_name})")
-
-    if is_first_time_user(user_id):
-        # کاربر جدید - پیام خوش‌آمدگویی کامل
-        welcome_message = (
-            f"🔷 سلام {user_name}! به **TeleBrief** خوش آمدید!\n\n"
-            "TeleBrief یک دستیار هوشمند برای دریافت خلاصه و تحلیل اخبار است.\n\n"
-            "🤖 من به‌صورت خودکار کانال‌های معتبر را بررسی می‌کنم و مهم‌ترین اخبار را برای شما انتخاب و خلاصه می‌کنم.\n\n"
-            "**📚 دو دسته خبری:**\n"
-            "• 🤖 هوش مصنوعی - 10 کانال تخصصی\n"
-            "• 🔒 امنیت سایبری - 6 کانال معتبر\n\n"
-            "📊 همراه با تعداد پیام‌های بررسی شده، خلاصه هوشمند، و لینک مستقیم\n\n"
-            "👇 دسته مورد نظر خود را انتخاب کنید:"
-        )
-        mark_user_as_seen(user_id)
-    else:
-        # کاربر قبلی - پیام کوتاه
-        welcome_message = (
-            f"👋 سلام {user_name}! خوش برگشتید!\n\n"
-            "👇 دسته مورد نظر خود را انتخاب کنید:"
-        )
-
-    await update.message.reply_text(
-        welcome_message,
-        reply_markup=get_main_menu_keyboard(),
-        parse_mode="Markdown",
-    )
-
-    update_user_interaction(user_id)
-
-
-async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """هندلر دستور /menu - نمایش منوی اصلی"""
-    user_name = update.effective_user.first_name
-
-    await update.message.reply_text(
-        f"📰 سلام {user_name}!\n\n👇 دسته مورد نظر خود را انتخاب کنید:",
-        reply_markup=get_main_menu_keyboard(),
+def welcome_text(first_name: str, is_new: bool) -> str:
+    name = html.escape(first_name or "دوست عزیز")
+    greeting = "خوش اومدی" if is_new else "خوش برگشتی"
+    return (
+        f"👋 <b>سلام {name}، {greeting}!</b>\n\n"
+        f"من <b>{APP_NAME}</b> هستم: پیام‌های کانال‌های معتبر را عمیق بررسی می‌کنم، "
+        "خبرهای تکراری و تبلیغاتی را کنار می‌گذارم و فقط مهم‌ترین موارد را با منبع مستقیم تحویلت می‌دهم.\n\n"
+        f"<blockquote>بازه فعلی گزارش: {HOURS_WINDOW} ساعت اخیر\n"
+        "خروجی: خلاصه فارسی، دلیل اهمیت، نکات کلیدی و لینک منبع</blockquote>\n\n"
+        "یکی از دسته‌ها را انتخاب کن 👇"
     )
 
 
-# ============ هندلر دکمه‌ها (Callback Query) ============
+HELP_TEXT = (
+    "📖 <b>راهنمای TeleBrief</b>\n\n"
+    "یک دسته را انتخاب کن. ربات همه پیام‌های بازه زمانی را می‌خواند، موارد کم‌ارزش را حذف می‌کند، "
+    "خبرهای مشابه را ادغام می‌کند و مهم‌ترین نتیجه‌ها را به ترتیب اهمیت می‌فرستد.\n\n"
+    "<b>دستورها</b>\n"
+    "/start - شروع و نمایش منوی اصلی\n"
+    "/menu - بازکردن منو\n"
+    "/help - راهنمای استفاده\n"
+    "/about - معرفی ربات\n\n"
+    "<blockquote>برای هر خبر، روی «مشاهده پیام اصلی» بزن تا مستقیماً به منبع تلگرام بروی.</blockquote>"
+)
+
+ABOUT_TEXT = (
+    "ℹ️ <b>درباره TeleBrief</b>\n\n"
+    "یک خبرخوان تحلیلی فارسی برای حوزه‌های <b>هوش مصنوعی</b> و <b>امنیت سایبری</b>. "
+    "هدفش زیادکردن تعداد پیام‌ها نیست؛ هدفش پیدا کردن چیزهایی است که واقعاً ارزش خواندن دارند.\n\n"
+    "<blockquote>کمتر اسکرول کن، بهتر باخبر شو.</blockquote>"
+)
 
 
-async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """هندلر کلیک روی دکمه‌ها"""
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user = update.effective_user
+    is_new = touch_user(user.id)
+    await update.effective_message.reply_text(
+        welcome_text(user.first_name, is_new),
+        parse_mode=ParseMode.HTML,
+        reply_markup=main_menu_keyboard(),
+        disable_web_page_preview=True,
+    )
+
+
+async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    touch_user(update.effective_user.id)
+    await update.effective_message.reply_text(
+        "🗞 <b>چه گزارشی می‌خوای؟</b>\n\nدسته موردنظرت را انتخاب کن:",
+        parse_mode=ParseMode.HTML,
+        reply_markup=main_menu_keyboard(),
+    )
+
+
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.effective_message.reply_text(
+        HELP_TEXT, parse_mode=ParseMode.HTML, reply_markup=back_keyboard()
+    )
+
+
+async def about_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.effective_message.reply_text(
+        ABOUT_TEXT, parse_mode=ParseMode.HTML, reply_markup=back_keyboard()
+    )
+
+
+async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
-    user_id = query.from_user.id
-    user_name = query.from_user.first_name
-    data = query.data
+    data = query.data or ""
+    user = query.from_user
+    touch_user(user.id)
 
-    await query.answer()  # تایید دریافت callback
+    if data in {"digest:ai", "digest:security"} and user_locks[user.id].locked():
+        await query.answer("گزارش قبلی هنوز در حال آماده‌شدن است.", show_alert=True)
+        return
+    await query.answer()
 
-    print(f"🔘 دکمه '{data}' توسط کاربر {user_id} ({user_name}) کلیک شد")
-
-    # بازگشت به منوی اصلی
-    if data == "main_menu":
+    if data == "page:menu":
         await query.edit_message_text(
-            f"📰 سلام {user_name}!\n\n👇 دسته مورد نظر خود را انتخاب کنید:",
-            reply_markup=get_main_menu_keyboard(),
+            "🗞 <b>چه گزارشی می‌خوای؟</b>\n\nدسته موردنظرت را انتخاب کن:",
+            parse_mode=ParseMode.HTML,
+            reply_markup=main_menu_keyboard(),
         )
         return
-
-    # نمایش راهنما
-    if data == "help":
-        help_text = (
-            "📖 **راهنمای استفاده از TeleBrief**\n\n"
-            "**نحوه کار:**\n"
-            "1️⃣ دسته مورد نظر (AI یا Security) را انتخاب کنید\n"
-            "2️⃣ ربات تمامی پیام‌های ۱۲ ساعت اخیر کانال‌ها را استخراج می‌کند\n"
-            "3️⃣ مکالمات و رخدادهای هر کانال به صورت پیوسته و عمیق تحلیل می‌شوند\n"
-            "4️⃣ برای هر کانال، گزارشی ساختاریافته (شامل موضوعات کلیدی، یافته‌ها، اقدامات و چالش‌های باز) ارسال می‌شود\n\n"
-            "**کانال‌های تحت پوشش:**\n"
-            "🤖 AI: 10 کانال (digiai, RoidBest, Farda_Ai و...)\n"
-            "🔒 Security: 6 کانال (thehackernews, cibsecurity و...)\n\n"
-            "**دستورات:**\n"
-            "• /start - نمایش منوی اصلی\n"
-            "• /menu - نمایش منوی اصلی\n"
-            "• /help - نمایش این راهنما"
-        )
-
+    if data == "page:help":
         await query.edit_message_text(
-            help_text,
-            reply_markup=get_back_to_menu_keyboard(),
-            parse_mode="Markdown",
+            HELP_TEXT, parse_mode=ParseMode.HTML, reply_markup=back_keyboard()
         )
         return
-
-    # دریافت اخبار AI
-    if data == "news_ai":
-        category = "ai"
-        category_name = "🤖 هوش مصنوعی"
-        emoji = "🤖"
-
-    # دریافت اخبار Security
-    elif data == "news_security":
-        category = "security"
-        category_name = "🔒 امنیت سایبری"
-        emoji = "🔒"
-
-    else:
+    if data == "page:about":
+        await query.edit_message_text(
+            ABOUT_TEXT, parse_mode=ParseMode.HTML, reply_markup=back_keyboard()
+        )
+        return
+    if data not in {"digest:ai", "digest:security"}:
         return
 
-    # ویرایش پیام به حالت "در حال پردازش"
-    processing_msg = await query.edit_message_text(
-        f"⏳ در حال پردازش کانال‌های {category_name}...\n\n"
-        f"🔍 دریافت و مرتب‌سازی تمامی پیام‌های ۱۲ ساعت اخیر...\n"
-        f"🤖 تحلیل عمیق و خلاصه‌سازی ساختاریافته به تفکیک کانال...\n\n"
-        f"⏱️ لطفاً چند لحظه صبر کنید..."
-    )
-
-    try:
-        # اجرای digest
-        chat_id = query.message.chat_id
-        picks_count = await run_digest(
-            chat_id, hours=HOURS_WINDOW, include_date_header=True, category=category
+    category = data.split(":", 1)[1]
+    category_name = "هوش مصنوعی" if category == "ai" else "امنیت سایبری"
+    lock = user_locks[user.id]
+    async with lock:
+        progress_message = await query.edit_message_text(
+            f"🔎 <b>جست‌وجوی عمیق {category_name}</b>\n\n"
+            "در حال خواندن پیام‌ها، حذف تبلیغات، تشخیص خبرهای تکراری و رتبه‌بندی موارد مهم...\n\n"
+            "<blockquote expandable>این مرحله ممکنه کمی طول بکشه؛ چون خروجی سریع ولی سطحی نمی‌خوایم.</blockquote>",
+            parse_mode=ParseMode.HTML,
         )
-
-        # ارسال پیام موفقیت با دکمه بازگشت
-        await context.bot.send_message(
-            chat_id,
-            f"✅ خلاصه تحلیلی {picks_count} کانال فعال {category_name} با موفقیت ارسال شد!\n\n"
-            f"👇 برای دریافت گزارش دسته دیگر، به منو برگردید:",
-            reply_markup=get_back_to_menu_keyboard(),
-        )
-
-        # حذف پیام "در حال پردازش"
-        await processing_msg.delete()
-
-        print(f"✅ خلاصه {picks_count} کانال {category} برای کاربر {user_id} ارسال شد.")
-        update_user_interaction(user_id)
-
-    except Exception as e:
-        print(f"❌ خطا در اجرای digest برای {category}: {e}")
-
-        # ویرایش پیام به حالت خطا
-        await processing_msg.edit_text(
-            f"⚠️ متأسفانه در پردازش درخواست شما خطایی رخ داد.\n\n"
-            f"لطفاً دوباره تلاش کنید یا با پشتیبانی تماس بگیرید.\n\n"
-            f"خطا: {str(e)[:100]}",
-            reply_markup=get_back_to_menu_keyboard(),
-        )
+        try:
+            count = await run_digest(
+                chat_id=query.message.chat_id,
+                hours=HOURS_WINDOW,
+                include_date_header=True,
+                category=category,
+            )
+            await progress_message.edit_text(
+                f"✅ <b>گزارش آماده شد</b>\n\n{count} خبر مهم از حوزه {category_name} پیدا و ارسال شد.",
+                parse_mode=ParseMode.HTML,
+                reply_markup=back_keyboard(),
+            )
+        except Exception:
+            logger.exception("ساخت گزارش برای کاربر %s ناموفق بود", user.id)
+            await progress_message.edit_text(
+                "⚠️ <b>ساخت گزارش کامل نشد</b>\n\n"
+                "ارتباط با یکی از سرویس‌ها مشکل داشت. چند دقیقه دیگه دوباره امتحان کن.",
+                parse_mode=ParseMode.HTML,
+                reply_markup=back_keyboard(),
+            )
 
 
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """هندلر دستور /help"""
-    help_text = (
-        "📖 **راهنمای استفاده از TeleBrief**\n\n"
-        "**نحوه کار:**\n"
-        "1️⃣ دسته مورد نظر (AI یا Security) را انتخاب کنید\n"
-        "2️⃣ ربات کانال‌های معتبر را بررسی می‌کند\n"
-        "3️⃣ پیام‌های 12 ساعت گذشته را جمع‌آوری می‌کند\n"
-        "4️⃣ با هوش مصنوعی، مهم‌ترین اخبار را انتخاب می‌کند\n"
-        "5️⃣ خلاصه هر خبر به همراه لینک مستقیم ارسال می‌شود\n"
-        "6️⃣ اگر خبر خاصی نبود، خلاصه کلی محتوای روز ارائه می‌شود\n\n"
-        "**کانال‌های بررسی شده:**\n"
-        "🤖 AI: 10 کانال تخصصی\n"
-        "🔒 Security: 6 کانال معتبر\n\n"
-        "**دستورات:**\n"
-        "• /start - نمایش منوی اصلی\n"
-        "• /menu - نمایش منوی اصلی\n"
-        "• /help - نمایش این راهنما"
+async def post_init(application: Application) -> None:
+    await application.bot.set_my_commands([
+        BotCommand("start", "شروع و نمایش منوی اصلی"),
+        BotCommand("menu", "انتخاب دسته خبری"),
+        BotCommand("help", "راهنمای استفاده"),
+        BotCommand("about", "معرفی TeleBrief"),
+    ])
+
+
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    logger.exception("خطای کنترل‌نشده در ربات", exc_info=context.error)
+
+
+def main() -> None:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
     )
-
-    await update.message.reply_text(
-        help_text, reply_markup=get_back_to_menu_keyboard(), parse_mode="Markdown"
-    )
-
-
-# ============ راه‌اندازی ربات ============
-
-
-def main():
-    """راه‌اندازی و اجرای ربات"""
     if not BOT_TOKEN:
-        print("❌ خطا: BOT_TOKEN تنظیم نشده است!")
-        return
+        raise RuntimeError("متغیر محیطی BOT_TOKEN تنظیم نشده است.")
 
-    print("🚀 در حال راه‌اندازی ربات TeleBrief...")
-
-    # ایجاد Application
-    application = Application.builder().token(BOT_TOKEN).build()
-
-    # افزودن هندلرهای دستورات
+    application = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("menu", menu_command))
     application.add_handler(CommandHandler("help", help_command))
-
-    # افزودن هندلر دکمه‌ها
+    application.add_handler(CommandHandler("about", about_command))
     application.add_handler(CallbackQueryHandler(button_callback))
-
-    print("✅ ربات آماده است و منتظر دستورات...")
-
-    # شروع polling (24/7)
+    application.add_error_handler(error_handler)
+    logger.info("%s آماده است", APP_NAME)
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 
