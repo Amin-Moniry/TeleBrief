@@ -55,8 +55,7 @@ AI_CHANNELS = [
     "Hugging_face_news", "samiotech",
 ]
 CHANNELS = SECURITY_CHANNELS
-FOOTER = '<a href="https://t.me/telebriefdata_bot">𝐉𝐎𝐈𝐍</a> ➣ <b>TeleBrief</b>'
-
+FOOTER = '<blockquote>‌<a href="https://t.me/telebriefdata_bot">𝐉𝐎𝐈𝐍</a> ➣ <b>TeleBrief</b></blockquote>'
 
 @dataclass(frozen=True)
 class ChannelMessage:
