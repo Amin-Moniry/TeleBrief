@@ -490,15 +490,21 @@ def format_currency_digest(
         message = entry["message"]
         price = html.escape(normalize_toman_price(entry["price"]))
         age = persian_time_ago(message.date)
-        price_lines.append(rtl(f"{icon} {title}: ") + f"<code>{price}</code>" + rtl(f" ({age})"))
+        price_lines.append(
+            rtl(f"{icon} {title}: ") + f"<code>{price}</code>" + "\n"
+            + rtl(f"🕒 {age}")
+        )
         channel = html.escape(message.channel)
-        source_links.append(f'<a href="{message.url}">@{channel}</a>')
+        source_links.append(f'<a href="{message.url}">مشاهده @{channel}</a>')
 
-    lines = [header, "", update_line, "", *price_lines]
+    lines = [header, "", update_line, "", "\n\n".join(price_lines)]
     if source_links:
+        sources_block = rtl("منبع‌ها:") + "\n" + "\n".join(
+            rtl(f"• {link}") for link in source_links
+        )
         lines.extend([
             "",
-            "<blockquote>" + rtl("منبع‌ها: ") + " · ".join(source_links) + "</blockquote>",
+            "<blockquote>" + sources_block + "</blockquote>",
         ])
     lines.extend([
         "",
@@ -751,7 +757,7 @@ def format_story(story: dict[str, Any], rank: int, category: str, lang: str = "f
         lines.extend([
             "",
             rtl("📎 <b>منبع مستقیم</b>"),
-            rtl(" | ".join(source_links)),
+            *[rtl(f"• {link}") for link in source_links],
         ])
     lines.extend([
         "",
