@@ -512,4 +512,4 @@ ANALYSIS_CONCURRENCY=1 را کاهش دهید یا BATCH_CHAR_LIMIT=20000 را �
 
 <img src="https://capsule-render.vercel.app/api?type=venom&color=0:0a0d1a,50:1a2a5e,100:0a0d1a&height=160&section=footer&text=Built%20with%20intelligence%20%E2%80%94%20TeleBrief&fontSize=26&fontAlign=50&fontAlignY=55&fontColor=4A9EFF&animation=fadeIn&stroke=4A9EFF&strokeWidth=0.5" width="100%"/>
 
-</div>
+</div>cc
