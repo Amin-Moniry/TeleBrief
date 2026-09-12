@@ -116,6 +116,7 @@
 | <sub>شخصی‌سازی کانال‌ها</sub> | <sub>شروع با لیست پیش‌فرض + افزودن کانال نامحدود</sub> | <sub>✅</sub> |
 | <sub>صفحه‌بندی هوشمند</sub> | <sub>۱۰ آیتم در هر صفحه بر اساس اهمیت، بارگذاری تدریجی</sub> | <sub>✅</sub> |
 | <sub>تاب‌آوری هوشمند</sub> | <sub>در صورت خطای LLM، بازگشت به رتبه‌بندی تعاملی — هرگز تحلیل جعلی</sub> | <sub>✅</sub> |
+| <sub>نرخ دلار و طلا</sub> | <sub>تازه‌ترین قیمت دلار و طلای ۱۸ عیار از چند کانال ارز، همیشه جدیدترین بروزرسانی بر اساس زمان واقعی پیام</sub> | <sub>✅</sub> |
 | <sub>پشتیبانی مدیا</sub> | <sub>تصویر، فایل و پیام صوتی</sub> | <sub>⏳</sub> |
 | <sub>داشبورد آنالیتیکس</sub> | <sub>متریک‌های استفاده و پایش عملکرد</sub> | <sub>⏳</sub> |
 
@@ -313,6 +314,7 @@ HOURS_WINDOW=12
 BATCH_CHAR_LIMIT=12000
 MODEL_RETRIES=4
 ANALYSIS_CONCURRENCY=1
+CURRENCY_HOURS_WINDOW=6
 ```
 
 ```python
@@ -397,13 +399,13 @@ ANALYSIS_CONCURRENCY=1 را کاهش دهید یا BATCH_CHAR_LIMIT=20000 را �
 <td align="center" width="330">
 
 **🧠 کانال‌های AI**
-<sub>@digiai · @RoidBest · @Farda_Ai · @Lumosel · @asrnovin_ir · @perplexity · @cryptoquant_official · @Hugging_face_news</sub>
+<sub>@RoidBest · @Farda_Ai · @Lumosel · @asrnovin_ir · @perplexity · @cryptoquant_official · @Hugging_face_news · @arzdigitalb · @Artificial_intelligence_in · @DeepLearning_ai · @HomeAI · @Artificial_Intelligence_AI · @data_science_info</sub>
 
 </td>
 <td align="center" width="330">
 
 **🛡️ کانال‌های امنیتی**
-<sub>@cybersecurityexperts · @thehackernews · @cibsecurity · @Cyber_Security_Channel · @androidMalware · @cloudandcybersecurity</sub>
+<sub>@cybersecurityexperts · @thehackernews · @cibsecurity · @Cyber_Security_Channel · @androidMalware · @cloudandcybersecurity · @itsecalert · @intsec · @topcybersecurity</sub>
 
 </td>
 </tr>
@@ -428,6 +430,7 @@ ANALYSIS_CONCURRENCY=1 را کاهش دهید یا BATCH_CHAR_LIMIT=20000 را �
 /menu           → انتخاب سریع دسته‌بندی
 /ai             → خلاصه ۱۲ ساعت اخیر حوزه AI
 /security       → خلاصه ۱۲ ساعت اخیر حوزه امنیت
+/price          → نرخ لحظه‌ای دلار و طلای ۱۸ عیار
 /help           → راهنمای استفاده
 /about          → درباره پروژه
 ```

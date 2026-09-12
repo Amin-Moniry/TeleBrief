@@ -15,7 +15,8 @@ from telegram.ext import (
 
 from digest_core import (
     AI_CHANNELS, SECURITY_CHANNELS, BOT_TOKEN, HOURS_WINDOW,
-    format_date_header, format_story, prepare_digest,
+    CURRENCY_HOURS_WINDOW, format_currency_digest, format_date_header,
+    format_story, prepare_currency_digest, prepare_digest,
 )
 
 APP_NAME = "TeleBrief"
@@ -93,6 +94,7 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🤖 هوش مصنوعی", callback_data="digest:ai"),
          InlineKeyboardButton("🛡 امنیت سایبری", callback_data="digest:security")],
+        [InlineKeyboardButton("💵 دلار و طلا", callback_data="digest:currency")],
         [InlineKeyboardButton("📚 کانال‌های من", callback_data="page:channels"),
          InlineKeyboardButton("📖 راهنما", callback_data="page:help")],
         [InlineKeyboardButton("ℹ️ درباره ربات", callback_data="page:about")],
@@ -141,9 +143,12 @@ HELP_TEXT = (
     "📖 <b>راهنمای TeleBrief</b>\n\n"
     "یک دسته و بازه زمانی را انتخاب کن. ربات همه پیام‌های بازه را می‌خواند، موارد کم‌ارزش را حذف می‌کند، "
     "خبرهای مشابه را ادغام می‌کند و مهم‌ترین نتیجه‌ها را به ترتیب اهمیت می‌فرستد.\n\n"
+    "بخش «💵 دلار و طلا» جداست: به‌جای رتبه‌بندی خبر، فقط تازه‌ترین قیمت دلار و طلای ۱۸ عیار را از کانال‌های ارز پیدا می‌کند "
+    "و همیشه جدیدترین بروزرسانی بین چند کانال را نشان می‌دهد.\n\n"
     "<b>دستورها</b>\n"
     "/start - شروع و نمایش منوی اصلی\n"
     "/menu - بازکردن منو\n"
+    "/price - نرخ لحظه‌ای دلار و طلا\n"
     "/help - راهنمای استفاده\n"
     "/about - معرفی ربات\n\n"
     "<blockquote>برای هر خبر، روی «مشاهده پیام اصلی» بزن تا مستقیماً به منبع تلگرام بروی.</blockquote>"
@@ -231,14 +236,16 @@ LOADING_STAGES = (
 )
 
 
-async def animate_loading(status_message, category_name: str, hours: int) -> None:
+async def animate_loading(
+    status_message, category_name: str, hours: int, stages: tuple[str, ...] = LOADING_STAGES
+) -> None:
     """لودینگ داشبوردی: قاب ثابت، مرحله متغیر، بدون اسپینر."""
     tick = 0
     stage_index = 0
     try:
         while True:
-            stage = LOADING_STAGES[stage_index % len(LOADING_STAGES)]
-            completed = "●" * stage_index + "○" * (len(LOADING_STAGES) - stage_index)
+            stage = stages[stage_index % len(stages)]
+            completed = "●" * stage_index + "○" * (len(stages) - stage_index)
             try:
                 await status_message.edit_text(
                     "🔍 <b>گزارش هوشمند | TeleBrief</b>\n"
@@ -256,7 +263,7 @@ async def animate_loading(status_message, category_name: str, hours: int) -> Non
                     raise
             tick += 1
             if tick % 4 == 0:
-                stage_index = (stage_index + 1) % len(LOADING_STAGES)
+                stage_index = (stage_index + 1) % len(stages)
             await asyncio.sleep(0.8)
     except asyncio.CancelledError:
         return
@@ -343,6 +350,66 @@ async def build_and_send_report(
                 parse_mode=ParseMode.HTML,
                 reply_markup=back_keyboard(),
             )
+
+
+CURRENCY_LOADING_STAGES = (
+    "اتصال به کانال‌های ارز و طلا",
+    "خواندن آخرین پیام‌ها",
+    "استخراج نرخ دلار و طلا",
+    "انتخاب تازه‌ترین به‌روزرسانی",
+)
+
+
+async def build_and_send_currency_report(
+    context: ContextTypes.DEFAULT_TYPE,
+    chat_id: int,
+    user_id: int,
+    status_message,
+) -> None:
+    lock = user_locks[user_id]
+    async with lock:
+        loading_task = asyncio.create_task(
+            animate_loading(status_message, "دلار و طلا", CURRENCY_HOURS_WINDOW, CURRENCY_LOADING_STAGES)
+        )
+        try:
+            result = await prepare_currency_digest()
+            loading_task.cancel()
+            await asyncio.gather(loading_task, return_exceptions=True)
+            text = format_currency_digest(
+                result["readings"], result["total_messages"], result["active_channels"]
+            )
+            await status_message.edit_text(
+                text,
+                parse_mode=ParseMode.HTML,
+                disable_web_page_preview=True,
+                reply_markup=back_keyboard(),
+            )
+        except Exception as exc:
+            loading_task.cancel()
+            await asyncio.gather(loading_task, return_exceptions=True)
+            logger.exception("ساخت گزارش دلار و طلا برای کاربر %s ناموفق بود", user_id)
+            is_model_outage = "سرویس مدل" in str(exc) or "503" in str(exc)
+            message = (
+                "⚠️ <b>سرویس تحلیل هوش مصنوعی پاسخ نمی‌دهد</b>\n\n"
+                "پیام‌ها دریافت شدند، اما سرویس مدل بعد از چند تلاش خطای موقت داد."
+                if is_model_outage else
+                "⚠️ <b>دریافت نرخ دلار و طلا کامل نشد</b>\n\nچند دقیقه دیگر دوباره امتحان کن."
+            )
+            await status_message.edit_text(
+                message, parse_mode=ParseMode.HTML, reply_markup=back_keyboard()
+            )
+
+
+async def price_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user_id = update.effective_user.id
+    touch_user(user_id)
+    if user_locks[user_id].locked():
+        await update.effective_message.reply_text("گزارش قبلی هنوز آماده نشده.")
+        return
+    status = await update.effective_message.reply_text(
+        "⏳ <b>در حال دریافت آخرین نرخ...</b>", parse_mode=ParseMode.HTML
+    )
+    await build_and_send_currency_report(context, update.effective_chat.id, user_id, status)
 
 
 async def custom_hours_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -463,6 +530,15 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         if not remaining:
             context.user_data.pop("digest_cache", None)
         return
+    if data == "digest:currency":
+        if user_locks[user.id].locked():
+            await query.answer("گزارش قبلی هنوز در حال آماده‌شدن است.", show_alert=True)
+            return
+        await query.edit_message_text(
+            "⏳ <b>در حال دریافت آخرین نرخ...</b>", parse_mode=ParseMode.HTML
+        )
+        await build_and_send_currency_report(context, query.message.chat_id, user.id, query.message)
+        return
     if data in {"digest:ai", "digest:security"}:
         category = data.split(":", 1)[1]
         context.user_data.pop("awaiting_hours", None)
@@ -501,6 +577,7 @@ async def post_init(application: Application) -> None:
     await application.bot.set_my_commands([
         BotCommand("start", "شروع و نمایش منوی اصلی"),
         BotCommand("menu", "انتخاب دسته خبری"),
+        BotCommand("price", "نرخ لحظه‌ای دلار و طلا"),
         BotCommand("help", "راهنمای استفاده"),
         BotCommand("about", "معرفی TeleBrief"),
     ])
@@ -523,6 +600,7 @@ def main() -> None:
     application.add_handler(CommandHandler("menu", menu_command))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("about", about_command))
+    application.add_handler(CommandHandler("price", price_command))
     application.add_handler(CallbackQueryHandler(button_callback))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_router))
     application.add_error_handler(error_handler)

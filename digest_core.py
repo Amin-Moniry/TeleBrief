@@ -58,12 +58,17 @@ ANALYSIS_CONCURRENCY = max(1, env_int("ANALYSIS_CONCURRENCY", 1))
 SECURITY_CHANNELS = [
     "cybersecurityexperts", "thehackernews", "cibsecurity",
     "Cyber_Security_Channel", "androidMalware", "cloudandcybersecurity",
+    "itsecalert", "intsec", "topcybersecurity",
 ]
 AI_CHANNELS = [
-    "digiai", "RoidBest", "Farda_Ai", "Lumosel", "asrnovin_ir",
+    "RoidBest", "Farda_Ai", "Lumosel", "asrnovin_ir",
     "perplexity", "cryptoquant_official", "hiaimediaen",
     "Hugging_face_news", "samiotech",
+    "arzdigitalb", "Artificial_intelligence_in", "DeepLearning_ai",
+    "HomeAI", "Artificial_Intelligence_AI", "data_science_info",
 ]
+CURRENCY_CHANNELS = ["irancurrency", "TetherLand", "navasanchannel"]
+CURRENCY_HOURS_WINDOW = env_int("CURRENCY_HOURS_WINDOW", 6)
 CHANNELS = SECURITY_CHANNELS
 FOOTER = '<blockquote>‌<a href="https://t.me/telebriefdata_bot">𝐉𝐎𝐈𝐍</a> ➣ <b>TeleBrief</b></blockquote>'
 
@@ -344,6 +349,142 @@ def merge_prompt(candidates: list[dict[str, Any]], category: str, lang: str = "f
         }
         for item in candidates
     ], ensure_ascii=False)}"""
+
+
+CURRENCY_ITEM_LABELS = {
+    "usd": ("💵", "قیمت دلار آمریکا"),
+    "gold18": ("🪙", "قیمت طلای ۱۸ عیار"),
+}
+
+
+def currency_extract_prompt(messages: list[ChannelMessage]) -> str:
+    sources = "\n\n".join(message.prompt_block() for message in messages)
+    return f"""این پیام‌ها از کانال‌های نرخ ارز و طلای تلگرام هستند. فقط دو قلم زیر را از هر پیام دربیاور و چیز دیگری را برنگردان:
+1) usd → قیمت دلار آمریکا (نرخ آزاد بازار)، به تومان
+2) gold18 → قیمت طلای ۱۸ عیار (طلای معمولی)، به تومان
+
+هر رمزارز (بیت‌کوین، اتریوم، تتر، سولانا، ریپل و امثال آن)، هر ارز دیگر جز دلار (یورو، درهم و ...)، سکه، طلای ۲۴ عیار و انس جهانی طلا را کاملاً نادیده بگیر؛ این‌ها را در خروجی نیاور.
+اگر پیامی هیچ‌کدام از این دو قلم را نداشت، آن پیام را کامل رد کن.
+مقدار price را دقیقاً همان‌طور که در متن پیام نوشته شده برگردان (همراه واحد: تومان یا هزار تومان)، هیچ عددی را گرد نکن، حدس نزن و از پیام‌های دیگر استنتاج نکن.
+خروجی فقط آرایه JSON با این ساختار باشد؛ اگر هیچ‌کدام در کل پیام‌ها پیدا نشد [] بده:
+[
+  {{"type": "usd", "price": "متن دقیق قیمت همراه واحد", "channel": "نام کانال بدون @", "message_id": 123}}
+]
+هر پیام می‌تواند صفر، یک یا هر دو مورد را داشته باشد؛ به ازای هر مورد پیداشده یک آیتم جدا در آرایه بگذار.
+
+منابع:
+{sources}"""
+
+
+def extract_currency_readings(
+    grouped_messages: dict[str, list[ChannelMessage]]
+) -> dict[str, dict[str, Any]]:
+    """قیمت دلار/طلا را از متن پیام‌ها استخراج می‌کند و برای هر مورد، تازه‌ترین
+    پیام را بر اساس زمان واقعی ارسال آن (نه ادعای مدل) انتخاب می‌کند؛ به این
+    ترتیب اگر کانالی دیرتر همان نرخ را منتشر کرده باشد، نسخه‌ی جدیدتر همان
+    کانال یا کانال دیگر جایگزین می‌شود."""
+    all_messages = [m for messages in grouped_messages.values() for m in messages]
+    if not all_messages:
+        return {}
+    by_source = {(m.channel.lower(), m.message_id): m for m in all_messages}
+    try:
+        raw = call_model_with_fallback(currency_extract_prompt(all_messages))
+    except Exception as exc:
+        raise RuntimeError(
+            "سرویس مدل در دسترس نیست؛ لطفاً چند دقیقه دیگر دوباره تلاش کنید."
+        ) from exc
+    items = raw if isinstance(raw, list) else []
+    best: dict[str, dict[str, Any]] = {}
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        kind = str(item.get("type", "")).strip().lower()
+        if kind not in CURRENCY_ITEM_LABELS:
+            continue
+        price = clean_model_text(item.get("price", ""))
+        if not price:
+            continue
+        try:
+            channel = str(item["channel"]).lstrip("@").lower()
+            message_id = int(item["message_id"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        source = by_source.get((channel, message_id))
+        if not source:
+            continue
+        current = best.get(kind)
+        if not current or source.date > current["message"].date:
+            best[kind] = {"price": price, "message": source}
+    return best
+
+
+def persian_time_ago(moment: datetime) -> str:
+    now = datetime.now(timezone.utc)
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    minutes = max(0, int((now - moment).total_seconds() // 60))
+    if minutes < 1:
+        return "همین الان"
+    if minutes < 60:
+        return f"{minutes} دقیقه پیش"
+    hours, remaining_minutes = divmod(minutes, 60)
+    if hours < 24:
+        return f"{hours} ساعت و {remaining_minutes} دقیقه پیش" if remaining_minutes else f"{hours} ساعت پیش"
+    return f"{hours // 24} روز پیش"
+
+
+def format_currency_digest(
+    readings: dict[str, dict[str, Any]], total_messages: int, active_channels: int
+) -> str:
+    now = datetime.now(TEHRAN_TZ) if TEHRAN_TZ else datetime.now()
+    lines = [
+        rtl("💵 <b>نرخ لحظه‌ای دلار و طلا | TeleBrief</b>"),
+        "",
+        "<blockquote>" + rtl(f"به‌روزرسانی گزارش: {html.escape(now.strftime('%Y/%m/%d %H:%M'))}") + "</blockquote>",
+        "",
+    ]
+    if not readings:
+        lines.append(rtl("در این بازه هیچ قیمتی از کانال‌های ارز پیدا نشد؛ کمی بعد دوباره امتحان کن."))
+        lines.extend(["", FOOTER])
+        return "\n".join(lines)
+
+    for key, (icon, title) in CURRENCY_ITEM_LABELS.items():
+        entry = readings.get(key)
+        if not entry:
+            lines.extend([rtl(f"{icon} <b>{title}</b>"), rtl("در این بازه به‌روزرسانی‌ای پیدا نشد."), ""])
+            continue
+        message = entry["message"]
+        channel = html.escape(message.channel)
+        lines.extend([
+            rtl(f"{icon} <b>{title}</b>"),
+            f"<code>{html.escape(entry['price'])}</code>",
+            rtl(f"⏱ {persian_time_ago(message.date)} · منبع: ") + f'<a href="{message.url}">@{channel}</a>',
+            "",
+        ])
+    lines.append(
+        "<blockquote>" + rtl(f"بر اساس {total_messages} پیام از {active_channels} کانال بررسی‌شده") + "</blockquote>"
+    )
+    lines.extend(["", FOOTER])
+    return "\n".join(lines)
+
+
+async def prepare_currency_digest() -> dict[str, Any]:
+    """آخرین نرخ دلار و طلای ۱۸ عیار را از کانال‌های ارز پیدا می‌کند. برخلاف
+    prepare_digest، اینجا خبر رتبه‌بندی نمی‌شود؛ فقط تازه‌ترین قیمت هر قلم
+    استخراج و برگردانده می‌شود."""
+    validate_config()
+    grouped = await fetch_channel_messages(CURRENCY_HOURS_WINDOW, CURRENCY_CHANNELS)
+    total_messages = sum(len(messages) for messages in grouped.values())
+    active_channels = len(grouped)
+    readings = (
+        await asyncio.to_thread(extract_currency_readings, grouped) if total_messages else {}
+    )
+    return {
+        "readings": readings,
+        "total_messages": total_messages,
+        "active_channels": active_channels,
+        "configured_channels": len(CURRENCY_CHANNELS),
+    }
 
 
 def clean_model_text(value: Any) -> str:
