@@ -433,6 +433,35 @@ def persian_time_ago(moment: datetime) -> str:
     return f"{hours // 24} روز پیش"
 
 
+PERSIAN_DIGITS_MAP = str.maketrans(
+    "۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789"
+)
+THOUSANDS_UNIT_RE = re.compile(r"هزار|ه[\s\.ـ]*تومان")
+
+
+def normalize_toman_price(raw: str) -> str:
+    """قیمت‌های تومانی کانال‌ها را یکدست می‌کند: ارقام فارسی را لاتین می‌کند و
+    اگر واحد «هزار تومان» بود (مثلاً «23,950 هـ.تومان»)، عدد را در ۱۰۰۰ ضرب
+    می‌کند تا مبلغ کامل با جداکننده هزارگان نمایش داده شود («23,950,000 تومان»)
+    نه شکل مبهم و کوتاه‌شده."""
+    text = str(raw or "").strip().translate(PERSIAN_DIGITS_MAP)
+    match = re.search(r"[\d,\.]*\d", text)
+    if not match:
+        return str(raw or "").strip()
+    number_str = match.group(0).replace(",", "")
+    if "." in number_str:
+        integer_part, _, frac_part = number_str.partition(".")
+        # نقطه‌ای که دقیقاً ۳ رقم بعدش می‌آید جداکننده هزارگان است، نه اعشار.
+        number_str = integer_part + frac_part if len(frac_part) == 3 else integer_part
+    try:
+        value = int(number_str)
+    except ValueError:
+        return str(raw or "").strip()
+    if THOUSANDS_UNIT_RE.search(text):
+        value *= 1000
+    return f"{value:,} تومان"
+
+
 def format_currency_digest(
     readings: dict[str, dict[str, Any]], total_messages: int, active_channels: int
 ) -> str:
@@ -441,29 +470,39 @@ def format_currency_digest(
         rtl("💵 <b>نرخ لحظه‌ای دلار و طلا | TeleBrief</b>"),
         "",
         "<blockquote>" + rtl(f"به‌روزرسانی گزارش: {html.escape(now.strftime('%Y/%m/%d %H:%M'))}") + "</blockquote>",
-        "",
     ]
     if not readings:
-        lines.append(rtl("در این بازه هیچ قیمتی از کانال‌های ارز پیدا نشد؛ کمی بعد دوباره امتحان کن."))
-        lines.extend(["", FOOTER])
+        lines.extend([
+            "",
+            rtl("در این بازه هیچ قیمتی از کانال‌های ارز پیدا نشد؛ کمی بعد دوباره امتحان کن."),
+            "", FOOTER,
+        ])
         return "\n".join(lines)
 
     for key, (icon, title) in CURRENCY_ITEM_LABELS.items():
         entry = readings.get(key)
+        lines.append("")
         if not entry:
-            lines.extend([rtl(f"{icon} <b>{title}</b>"), rtl("در این بازه به‌روزرسانی‌ای پیدا نشد."), ""])
+            lines.append(
+                "<blockquote>"
+                + rtl(f"{icon} <b>{title}</b>") + "\n"
+                + rtl("در این بازه به‌روزرسانی‌ای پیدا نشد.")
+                + "</blockquote>"
+            )
             continue
         message = entry["message"]
         channel = html.escape(message.channel)
-        lines.extend([
+        card = "\n".join([
             rtl(f"{icon} <b>{title}</b>"),
-            f"<code>{html.escape(entry['price'])}</code>",
-            rtl(f"⏱ {persian_time_ago(message.date)} · منبع: ") + f'<a href="{message.url}">@{channel}</a>',
-            "",
+            f"<code>{html.escape(normalize_toman_price(entry['price']))}</code>",
+            rtl(f"⏱ {persian_time_ago(message.date)}") + " · " + rtl("منبع: ") + f'<a href="{message.url}">@{channel}</a>',
         ])
-    lines.append(
-        "<blockquote>" + rtl(f"بر اساس {total_messages} پیام از {active_channels} کانال بررسی‌شده") + "</blockquote>"
-    )
+        lines.append("<blockquote>" + card + "</blockquote>")
+
+    lines.extend([
+        "",
+        f"<code>{html.escape(f'بر اساس {total_messages} پیام از {active_channels} کانال بررسی‌شده')}</code>",
+    ])
     lines.extend(["", FOOTER])
     return "\n".join(lines)
 
