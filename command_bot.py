@@ -1,6 +1,7 @@
 import asyncio
 import html
 import logging
+import os
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
@@ -22,7 +23,11 @@ from digest_core import (
 )
 
 APP_NAME = "TeleBrief"
-STATE_FILE = Path("bot_state.json")
+# DATA_DIR باید به مسیر یک Volume دائمی روی Railway اشاره کند (مثلاً /data)
+# در غیر این صورت هر دیپلوی/ری‌استارت باعث پاک‌شدن bot_state.json می‌شود.
+DATA_DIR = Path(os.getenv("DATA_DIR", "."))
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+STATE_FILE = DATA_DIR / "bot_state.json"
 logger = logging.getLogger(__name__)
 user_locks: dict[int, asyncio.Lock] = defaultdict(asyncio.Lock)
 PAGE_SIZE = 10
