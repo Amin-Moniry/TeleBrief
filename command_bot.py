@@ -638,7 +638,7 @@ def build_stats_report() -> tuple[str, list[str]]:
     top_category = max(category_totals.items(), key=lambda kv: kv[1], default=(None, 0))
 
     lines = [
-        "<blockquote>📊 آمار ربات TeleBrief</blockquote>",
+        "<blockquote>📊 آمار ربات </blockquote>",
         "",
         f"👥 کاربران: <b>{fa_num(total_users)}</b>",
         f"✨ جدید امروز: <b>{fa_num(new_today)}</b>",
