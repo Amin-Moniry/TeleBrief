@@ -32,6 +32,74 @@ logger = logging.getLogger(__name__)
 user_locks: dict[int, asyncio.Lock] = defaultdict(asyncio.Lock)
 PAGE_SIZE = 10
 
+# ---------------------------------------------------------------------------
+# عضویت اجباری در کانال
+# نکته مهم: ربات باید در کانال زیر ادمین باشد تا بتواند وضعیت عضویت کاربرها را
+# با getChatMember بررسی کند؛ در غیر این صورت این بررسی به‌صورت خودکار عبور
+# داده می‌شود (fail-open) تا کل ربات به‌خاطر یک تنظیم فراموش‌شده از کار نیفتد.
+# ---------------------------------------------------------------------------
+REQUIRED_CHANNEL_USERNAME = "atishbekakestar"
+REQUIRED_CHANNEL_LINK = "https://t.me/atishbekakestar"
+REQUIRED_CHANNEL_LABEL = "𝐉𝐎𝐈𝐍"
+REQUIRED_CHANNEL_DISPLAY = "آتیش بی خاکستر"
+JOIN_CHECK_CALLBACK = "join:check"
+
+
+def join_required_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("📢 عضویت در کانال", url=REQUIRED_CHANNEL_LINK)],
+        [InlineKeyboardButton("✅ عضو شدم، بررسی کن", callback_data=JOIN_CHECK_CALLBACK)],
+    ])
+
+
+def join_required_text() -> str:
+    return (
+        "\u200f🔒 <b>دسترسی به ربات قفل است</b>\n\n"
+        "\u200fبرای استفاده از TeleBrief، اول باید عضو کانال زیر بشی:\n\n"
+        f"\u200f<a href=\"{REQUIRED_CHANNEL_LINK}\">{REQUIRED_CHANNEL_LABEL}</a> ➣ <b>{REQUIRED_CHANNEL_DISPLAY}</b>\n\n"
+        "\u200fبعد از عضویت، روی دکمه «✅ عضو شدم، بررسی کن» بزن تا دسترسی باز شود."
+    )
+
+
+async def is_channel_member(context: ContextTypes.DEFAULT_TYPE, user_id: int) -> bool:
+    """بررسی می‌کند کاربر عضو کانال اجباری هست یا نه. ادمین همیشه معاف است."""
+    if ADMIN_ID and user_id == ADMIN_ID:
+        return True
+    try:
+        member = await context.bot.get_chat_member(
+            chat_id=f"@{REQUIRED_CHANNEL_USERNAME}", user_id=user_id
+        )
+        return member.status not in ("left", "kicked")
+    except BadRequest:
+        logger.warning(
+            "بررسی عضویت کاربر %s در کانال ناموفق بود (شاید ربات ادمین کانال نیست).",
+            user_id,
+        )
+        return True
+    except Exception:
+        logger.exception("خطای غیرمنتظره هنگام بررسی عضویت کاربر %s", user_id)
+        return True
+
+
+async def send_join_wall(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = update.effective_message
+    if message is not None:
+        await message.reply_text(
+            join_required_text(),
+            parse_mode=ParseMode.HTML,
+            reply_markup=join_required_keyboard(),
+            disable_web_page_preview=True,
+        )
+
+
+async def require_join(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    """اگر کاربر عضو کانال نباشد، دیوار عضویت را نشان می‌دهد و False برمی‌گرداند."""
+    user = update.effective_user
+    if user is None or await is_channel_member(context, user.id):
+        return True
+    await send_join_wall(update, context)
+    return False
+
 
 def load_state() -> dict:
     if not STATE_FILE.exists():
@@ -195,6 +263,8 @@ ABOUT_TEXT = (
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
     is_new = touch_user(user.id, user)
+    if not await require_join(update, context):
+        return
     await update.effective_message.reply_text(
         welcome_text(user.first_name, is_new),
         parse_mode=ParseMode.HTML,
@@ -205,6 +275,8 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     touch_user(update.effective_user.id, update.effective_user)
+    if not await require_join(update, context):
+        return
     await update.effective_message.reply_text(
         "🗞 <b>چه گزارشی می‌خوای؟</b>\n\nدسته موردنظرت را انتخاب کن:",
         parse_mode=ParseMode.HTML,
@@ -213,12 +285,18 @@ async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    touch_user(update.effective_user.id, update.effective_user)
+    if not await require_join(update, context):
+        return
     await update.effective_message.reply_text(
         HELP_TEXT, parse_mode=ParseMode.HTML, reply_markup=back_keyboard()
     )
 
 
 async def about_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    touch_user(update.effective_user.id, update.effective_user)
+    if not await require_join(update, context):
+        return
     await update.effective_message.reply_text(
         ABOUT_TEXT, parse_mode=ParseMode.HTML, reply_markup=back_keyboard()
     )
@@ -436,6 +514,8 @@ async def build_and_send_currency_report(
 async def price_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.effective_user.id
     touch_user(user_id, update.effective_user)
+    if not await require_join(update, context):
+        return
     if user_locks[user_id].locked():
         await update.effective_message.reply_text("گزارش قبلی هنوز آماده نشده.")
         return
@@ -500,6 +580,8 @@ async def add_channel_message(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """یک router واحد؛ اجازه نمی‌دهد ورودی ساعت توسط handler کانال بلعیده شود."""
+    if not await require_join(update, context):
+        return
     if context.user_data.get("awaiting_channel"):
         await add_channel_message(update, context)
     elif context.user_data.get("awaiting_hours"):
@@ -510,7 +592,30 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     query = update.callback_query
     data = query.data or ""
     user = query.from_user
-    touch_user(user.id, user)
+    is_new = touch_user(user.id, user)
+
+    if data == JOIN_CHECK_CALLBACK:
+        if await is_channel_member(context, user.id):
+            await query.answer("✅ عضویت تایید شد!")
+            await query.edit_message_text(
+                welcome_text(user.first_name, is_new),
+                parse_mode=ParseMode.HTML,
+                reply_markup=main_menu_keyboard(),
+                disable_web_page_preview=True,
+            )
+        else:
+            await query.answer("هنوز عضو کانال نشدی 🙁", show_alert=True)
+        return
+
+    if not await is_channel_member(context, user.id):
+        await query.answer()
+        await query.edit_message_text(
+            join_required_text(),
+            parse_mode=ParseMode.HTML,
+            reply_markup=join_required_keyboard(),
+            disable_web_page_preview=True,
+        )
+        return
 
     if data.startswith("hours:") and user_locks[user.id].locked():
         await query.answer("گزارش قبلی هنوز در حال آماده‌شدن است.", show_alert=True)
