@@ -1,10 +1,10 @@
 <div align="center">
 
-<img src="https://capsule-render.vercel.app/api?type=venom&height=220&color=0:0a0d1a,50:1a2a5e,100:0a0d1a&text=TELEBRIEF&fontColor=4A9EFF&fontSize=60&fontAlign=50&fontAlignY=55&animation=fadeIn&stroke=4A9EFF&strokeWidth=1&desc=%D8%B1%D8%B5%D8%AF%D8%AE%D8%A7%D9%86%D9%87%20%D9%87%D9%88%D8%B4%D9%85%D9%86%D8%AF%20%D8%AA%D9%84%DA%AF%D8%B1%D8%A7%D9%85%20%7C%20AI%20%C2%B7%20Cybersecurity%20%C2%B7%20MTProto&descAlign=50&descAlignY=75&descSize=15&descColor=7db8ff" width="100%"/>
+<img src="https://capsule-render.vercel.app/api?type=venom&height=220&color=0:0a0d1a,50:1a2a5e,100:0a0d1a&text=TELEBRIEF&fontColor=4A9EFF&fontSize=60&fontAlign=50&fontAlignY=55&animation=fadeIn&stroke=4A9EFF&strokeWidth=1&desc=Autonomous%20Telegram%20Intelligence%20Feed%20%7C%20AI%20%C2%B7%20Cybersecurity%20%C2%B7%20MTProto&descAlign=50&descAlignY=75&descSize=15&descColor=7db8ff" width="100%"/>
 
 <br/>
 
-<img src="https://readme-typing-svg.herokuapp.com?font=Share+Tech+Mono&weight=700&size=20&duration=4000&pause=800&color=4A9EFF&center=true&vCenter=true&width=760&height=45&lines=%E2%96%B6+INTELLIGENCE+FEED+%E2%80%94+ONLINE;%E2%97%8F+TELETHON+%C2%B7+DEEPSEEK+%C2%B7+OPENAI;%E2%96%B6+TWO-STAGE+AI+FILTERING+PIPELINE;%E2%97%8F+PERSIAN-NATIVE+TELEGRAM+UI"/>
+<img src="https://readme-typing-svg.herokuapp.com?font=Share+Tech+Mono&weight=700&size=20&duration=4000&pause=800&color=4A9EFF&center=true&vCenter=true&width=760&height=45&lines=%E2%96%B6+INTELLIGENCE+FEED+%E2%80%94+ONLINE;%E2%97%8F+TELETHON+%C2%B7+DEEPSEEK+%C2%B7+OPENAI+%C2%B7+GEMINI;%E2%96%B6+TWO-STAGE+AI+FILTERING+PIPELINE;%E2%97%8F+SELF-SERVE+TELEGRAM+BOT+UI"/>
 
 <br/>
 
@@ -16,7 +16,7 @@
 
 <br/><br/>
 
-> **"در دنیایی که در سیل اطلاعات غرق شده، هنر واقعی در چیزی‌ست که نادیده می‌گیری."**
+> **"In a world drowning in information, the real art lies in what you choose to ignore."**
 
 <img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif">
 
@@ -26,15 +26,15 @@
 
 <div align="center">
 
-## `◈` معرفی
+## `◈` Overview
 
 </div>
 
 <div align="center">
 
-**TeleBrief** صدها کانال تلگرامی حوزه‌ی فناوری، امنیت شبکه، بازار دلار و طلا و بازار کریپتو و جنگ را به‌صورت لحظه‌ای رصد می‌کند، اسپم و محتوای بی‌ارزش را حذف می‌کند و با یک پایپ‌لاین هوش مصنوعی دو مرحله‌ای، خروجی را به‌صورت گزارش‌های امتیازدهی‌شده، خلاصه‌شده و همراه با لینک منبع مستقیم در اختیار شما قرار می‌دهد.
+**TeleBrief** monitors hundreds of Telegram channels covering technology, cybersecurity, the USD/gold market, crypto, and geopolitical conflict in real time. It strips out spam and low-value noise, then runs everything through a **two-stage AI pipeline** that returns scored, summarized reports with direct source links — delivered straight into a Telegram bot.
 
-هسته‌ی سیستم بر پایه‌ی اسکرپینگ عمیق با **Telethon (MTProto)** ساخته شده — بدون نیاز به دسترسی ادمین، بدون محدودیت نرخ، و با پایش لحظه‌ای. خروجی نهایی در قالب کارت‌های زیبا و فارسی‌نویس در تلگرام تحویل داده می‌شود.
+The scraping core runs on deep **Telethon (MTProto)** access — no admin rights required, no aggressive rate limits, and always live. Every report is rendered as a clean, structured card right inside Telegram, and each user can shape their own feed with custom channels, time windows, and categories.
 
 </div>
 
@@ -46,18 +46,18 @@
 
 <div align="center">
 
-## `◈` چرا TeleBrief؟
+## `◈` Why TeleBrief?
 
-<img src="https://readme-typing-svg.herokuapp.com?font=Share+Tech+Mono&size=13&duration=3000&pause=999999&color=4A9EFF&center=true&vCenter=true&width=560&height=28&lines=%E2%97%89+%D8%A7%D8%B2+%D9%87%D8%B2%D8%A7%D8%B1%D8%A7%D9%86+%D9%BE%D8%B3%D8%AA+%D8%AA%D8%A7+%D8%A8%DB%8C%D9%86%D8%B4+%D9%88%D8%A7%D9%82%D8%B9%DB%8C"/>
+<img src="https://readme-typing-svg.herokuapp.com?font=Share+Tech+Mono&size=13&duration=3000&pause=999999&color=4A9EFF&center=true&vCenter=true&width=560&height=28&lines=%E2%97%89+From+thousands+of+posts+to+what+actually+matters"/>
 
 <small>
 
-| <sub>▶ مسئله</sub> | <sub>واقعیت</sub> |
+| <sub>▶ Problem</sub> | <sub>Reality</sub> |
 |:---:|:---:|
-| <sub>حجم پست‌ها</sub> | <sub>هزاران پست در روز در کانال‌های فنی تلگرام</sub> |
-| <sub>اسپم</sub> | <sub>۷۰٪ محتوای بی‌ارزش و تکراری</sub> |
-| <sub>کلیک‌بیت</sub> | <sub>۲۰٪ عنوان‌های فریبنده بدون محتوای واقعی</sub> |
-| <sub>ارزش واقعی</sub> | <sub>تنها ۱۰٪ قابل استفاده — و TeleBrief دقیقاً همان را پیدا می‌کند</sub> |
+| <sub>Post volume</sub> | <sub>Thousands of posts a day across technical Telegram channels</sub> |
+| <sub>Spam</sub> | <sub>~70% is low-value or repetitive noise</sub> |
+| <sub>Clickbait</sub> | <sub>~20% is misleading headlines with no real substance</sub> |
+| <sub>Actual signal</sub> | <sub>Only ~10% is worth reading — and that's exactly what TeleBrief surfaces</sub> |
 
 </small>
 
@@ -67,26 +67,26 @@
 
 <div align="center">
 
-### سه رکن اصلی
+### Three Pillars
 
 <table>
 <tr>
 <td align="center" width="260">
 
-**`◆` اسکرپینگ عمیق MTProto**
-<sub>دسترسی بدون نیاز به ادمین · پایش لحظه‌ای · عبور از محدودیت نرخ</sub>
+**`◆` Deep MTProto Scraping**
+<sub>No admin access needed · live monitoring · sidesteps aggressive rate limits</sub>
 
 </td>
 <td align="center" width="260">
 
-**`◆` پایپ‌لاین دو مرحله‌ای AI**
-<sub>مرحله ۱: فیلتر و حذف اسپم · مرحله ۲: ادغام و امتیازدهی اهمیت (۰ تا ۱۰۰)</sub>
+**`◆` Two-Stage AI Pipeline**
+<sub>Stage 1: shortlist & spam filtering · Stage 2: merge & importance scoring (0–100)</sub>
 
 </td>
 <td align="center" width="260">
 
-**`◆` رابط زیبای تلگرام**
-<sub>کارت‌های فارسی‌نویس · جزئیات باز‌شونده · لینک مستقیم منبع</sub>
+**`◆` Self-Serve Telegram UI**
+<sub>Structured cards · expandable detail · direct source links · per-user customization</sub>
 
 </td>
 </tr>
@@ -102,24 +102,28 @@
 
 <div align="center">
 
-## `◈` قابلیت‌های اصلی
+## `◈` Key Features
 
-<img src="https://readme-typing-svg.herokuapp.com?font=Share+Tech+Mono&size=13&duration=3000&pause=999999&color=4A9EFF&center=true&vCenter=true&width=520&height=28&lines=%E2%97%89+%D9%87%D8%B1%D8%A2%D9%86%DA%86%D9%87+%DA%A9%D9%87+%D8%A8%D8%B1%D8%A7%DB%8C+%D8%B1%D8%B5%D8%AF+%D9%86%DB%8C%D8%A7%D8%B2+%D8%AF%D8%A7%D8%B1%DB%8C%D8%AF"/>
+<img src="https://readme-typing-svg.herokuapp.com?font=Share+Tech+Mono&size=13&duration=3000&pause=999999&color=4A9EFF&center=true&vCenter=true&width=520&height=28&lines=%E2%97%89+Everything+you+need+to+see+is+already+here"/>
 
 <small>
 
-| <sub>▶ ویژگی</sub> | <sub>توضیح</sub> | <sub>وضعیت</sub> |
+| <sub>▶ Feature</sub> | <sub>Description</sub> | <sub>Status</sub> |
 |:---:|:---:|:---:|
-| <sub>تحلیل دو‌لایه AI</sub> | <sub>مبتنی بر DeepSeek V3/V4 و OpenAI — استخراج اهمیت، استدلال و اثرات فنی</sub> | <sub>✅</sub> |
-| <sub>داشبورد لود زنده</sub> | <sub>وضعیت متحرک لحظه‌ای با ردیابی هر فاز از پردازش</sub> | <sub>✅</sub> |
-| <sub>فیلتر زمانی انعطاف‌پذیر</sub> | <sub>پیش‌تنظیم‌های ۶ تا ۷۲۰ ساعته + بازه‌ی سفارشی</sub> | <sub>✅</sub> |
-| <sub>شخصی‌سازی کانال‌ها</sub> | <sub>شروع با لیست پیش‌فرض + افزودن کانال نامحدود</sub> | <sub>✅</sub> |
-| <sub>صفحه‌بندی هوشمند</sub> | <sub>۱۰ آیتم در هر صفحه بر اساس اهمیت، بارگذاری تدریجی</sub> | <sub>✅</sub> |
-| <sub>تاب‌آوری هوشمند</sub> | <sub>در صورت خطای LLM، بازگشت به رتبه‌بندی تعاملی — هرگز تحلیل جعلی</sub> | <sub>✅</sub> |
-| <sub>نرخ دلار و طلا</sub> | <sub>تازه‌ترین قیمت دلار و طلای ۱۸ عیار از چند کانال ارز، همیشه جدیدترین بروزرسانی بر اساس زمان واقعی پیام</sub> | <sub>✅</sub> |
-| <sub>گزارش بازار کریپتو و جنگ</sub> | <sub>روایت کلی وضعیت بازار رمزارز و ریسک‌های جنگ/ژئوپلیتیک + نکات مهم منبع‌دار، با صفحه‌بندی ده‌تایی</sub> | <sub>✅</sub> |
-| <sub>پشتیبانی مدیا</sub> | <sub>تصویر، فایل و پیام صوتی</sub> | <sub>⏳</sub> |
-| <sub>داشبورد آنالیتیکس</sub> | <sub>متریک‌های استفاده و پایش عملکرد</sub> | <sub>⏳</sub> |
+| <sub>Two-layer AI analysis</sub> | <sub>Powered by DeepSeek V4 / OpenAI-compatible models with automatic fallback — extracts importance, reasoning, and technical impact</sub> | <sub>✅</sub> |
+| <sub>Resilient model chain</sub> | <sub>Primary model → configurable text-model fallbacks → Gemini as a last resort, with retry limits at every hop — a report is never faked</sub> | <sub>✅</sub> |
+| <sub>Live loading dashboard</sub> | <sub>Animated, stage-by-stage progress card while a report is generated, with an inline cancel button</sub> | <sub>✅</sub> |
+| <sub>Background, cancellable reports</sub> | <sub>Report generation runs as a background task per user, so a "cancel report" tap is honored instantly instead of queuing behind it</sub> | <sub>✅</sub> |
+| <sub>Flexible time filters</sub> | <sub>Preset windows from 6 to 720 hours, plus a fully custom hour range</sub> | <sub>✅</sub> |
+| <sub>Per-user custom channels</sub> | <sub>Starts from a curated default list, then add or remove unlimited personal channels via `/addchannel`</sub> | <sub>✅</sub> |
+| <sub>Smart pagination</sub> | <sub>10 items per page, ranked by importance, with a "load more" button for the rest</sub> | <sub>✅</sub> |
+| <sub>Mandatory-join gate</sub> | <sub>Optional membership check against a required channel before granting access, fail-safe by design</sub> | <sub>✅</sub> |
+| <sub>Admin analytics (`/stats`)</sub> | <sub>Silent, admin-only command showing total users, daily growth, requests by category, and a paginated leaderboard</sub> | <sub>✅</sub> |
+| <sub>USD & gold rates</sub> | <sub>Latest USD and 18k gold prices pulled from multiple currency channels, always resolved to the freshest real-world timestamp</sub> | <sub>✅</sub> |
+| <sub>Crypto & geopolitical market report</sub> | <sub>A narrative overview of crypto market conditions and war/geopolitical risk, plus sourced highlights with 10-item pagination</sub> | <sub>✅</sub> |
+| <sub>Atomic state persistence</sub> | <sub>User state (preferences, stats, channels) is written atomically to disk to survive concurrent writes and crashes</sub> | <sub>✅</sub> |
+| <sub>Media support</sub> | <sub>Images, files, and voice messages</sub> | <sub>⏳</sub> |
+| <sub>Full analytics dashboard</sub> | <sub>Usage metrics and performance monitoring UI</sub> | <sub>⏳</sub> |
 
 </small>
 
@@ -133,39 +137,41 @@
 
 <div align="center">
 
-## `◈` معماری سیستم
+## `◈` System Architecture
 
-<img src="https://readme-typing-svg.herokuapp.com?font=Share+Tech+Mono&size=13&duration=3000&pause=999999&color=4A9EFF&center=true&vCenter=true&width=520&height=28&lines=%E2%97%89+%D9%85%D8%B3%DB%8C%D8%B1+%D8%AF%D8%A7%D8%AF%D9%87+%D8%A7%D8%B2+%DA%A9%D8%A7%D9%86%D8%A7%D9%84+%D8%AA%D8%A7+%DA%AF%D8%B2%D8%A7%D8%B1%D8%B4"/>
+<img src="https://readme-typing-svg.herokuapp.com?font=Share+Tech+Mono&size=13&duration=3000&pause=999999&color=4A9EFF&center=true&vCenter=true&width=520&height=28&lines=%E2%97%89+End-to-end+data+flow"/>
 
 </div>
 
 ```mermaid
 graph TD
-    A[📡 کانال‌های تلگرام] --> B[⚙️ Harvesting — Telethon MTProto]
-    B --> C{فیلتر اولیه اسپم}
-    C -->|عبور کرد| D[🧠 مرحله ۱ — Shortlisting]
-    C -->|حذف شد| X[🗑️ اسپم]
-    D --> E[🧠 مرحله ۲ — Merge & Scoring]
-    E --> F{امتیاز اهمیت 0-100}
-    F --> G[🚀 ارسال به Telegram Bot]
-    G --> H[📑 صفحه‌بندی هوشمند]
+    A[📡 Telegram Channels] --> B[⚙️ Harvesting — Telethon MTProto]
+    B --> C{Initial Spam Filter}
+    C -->|Passed| D[🧠 Stage 1 — Shortlisting]
+    C -->|Dropped| X[🗑️ Spam]
+    D --> E[🧠 Stage 2 — Merge & Scoring]
+    E --> F{Importance Score 0-100}
+    F --> G[🚀 Delivered to Telegram Bot]
+    G --> H[📑 Smart Pagination]
     G --> I[⏱️ GitHub Actions Scheduler]
+    E -.model unavailable.-> J[♻️ Fallback Models → Gemini]
+    J --> F
 ```
 
 <br/>
 
 <div align="center">
 
-### `◆` عملکرد
+### `◆` Performance
 
 <small>
 
-| <sub>متریک</sub> | <sub>مقدار</sub> |
+| <sub>Metric</sub> | <sub>Value</sub> |
 |:---:|:---:|
-| <sub>زمان تحلیل</sub> | <sub>۱۵ تا ۴۵ ثانیه</sub> |
-| <sub>سرعت اسکن</sub> | <sub>~۱۰۰ پیام در ثانیه</sub> |
-| <sub>مصرف حافظه</sub> | <sub>کمتر از ۱۵۰MB</sub> |
-| <sub>سرعت صفحه‌بندی</sub> | <sub>کمتر از ۱ ثانیه</sub> |
+| <sub>Analysis time</sub> | <sub>15–45 seconds</sub> |
+| <sub>Scan throughput</sub> | <sub>~100 messages/sec</sub> |
+| <sub>Memory footprint</sub> | <sub>Under 150 MB</sub> |
+| <sub>Pagination latency</sub> | <sub>Under 1 second</sub> |
 
 </small>
 
@@ -179,15 +185,15 @@ graph TD
 
 <div align="center">
 
-## `◈` نصب و راه‌اندازی
+## `◈` Installation & Setup
 
-<img src="https://readme-typing-svg.herokuapp.com?font=Share+Tech+Mono&size=13&duration=3000&pause=999999&color=4A9EFF&center=false&vCenter=true&width=560&height=28&lines=%E2%96%B6+%D8%B1%D8%A7%D9%87%E2%80%8C%D8%A7%D9%86%D8%AF%D8%A7%D8%B2%DB%8C+%DA%AF%D8%A7%D9%85+%D8%A8%D9%87+%DA%AF%D8%A7%D9%85"/>
+<img src="https://readme-typing-svg.herokuapp.com?font=Share+Tech+Mono&size=13&duration=3000&pause=999999&color=4A9EFF&center=false&vCenter=true&width=560&height=28&lines=%E2%96%B6+Let%27s+get+you+running"/>
 
 </div>
 
-**پیش‌نیازها:** Python 3.11+ · حساب تلگرام · Telegram API ID/Hash از my.telegram.org · توکن ربات از BotFather@ · کلید API برای LLM
+**Prerequisites:** Python 3.11+ · a Telegram account · Telegram API ID/Hash from my.telegram.org · a bot token from @BotFather · an API key for the LLM gateway
 
-![01](https://img.shields.io/badge/01-Clone_%26_Setup-4A9EFF?style=flat-square&labelColor=0a0d1a) &nbsp; کلون کردن ریپو و ساخت محیط مجازی
+![01](https://img.shields.io/badge/01-Clone_%26_Setup-4A9EFF?style=flat-square&labelColor=0a0d1a) &nbsp; Clone the repo and create a virtual environment
 
 ```bash
 git clone https://github.com/Amin-Moniry/TeleBrief.git
@@ -198,13 +204,13 @@ source venv/bin/activate   # Linux/Mac
 # venv\Scripts\activate    # Windows
 ```
 
-![02](https://img.shields.io/badge/02-Install_Deps-4A9EFF?style=flat-square&labelColor=0a0d1a) &nbsp; نصب وابستگی‌ها
+![02](https://img.shields.io/badge/02-Install_Deps-4A9EFF?style=flat-square&labelColor=0a0d1a) &nbsp; Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-![03](https://img.shields.io/badge/03-Telegram_Session-4A9EFF?style=flat-square&labelColor=0a0d1a) &nbsp; ساخت Session String تلگرام
+![03](https://img.shields.io/badge/03-Telegram_Session-4A9EFF?style=flat-square&labelColor=0a0d1a) &nbsp; Generate a Telegram session string
 
 ```bash
 python -c "
@@ -217,14 +223,14 @@ with TelegramClient(StringSession(), API_ID, API_HASH) as c:
 "
 ```
 
-![04](https://img.shields.io/badge/04-Configure_.env-4A9EFF?style=flat-square&labelColor=0a0d1a) &nbsp; تنظیم متغیرهای محیطی
+![04](https://img.shields.io/badge/04-Configure_.env-4A9EFF?style=flat-square&labelColor=0a0d1a) &nbsp; Set your environment variables
 
 ```bash
 cp .env.example .env
-# ویرایش .env با مقادیر خودتان
+# edit .env with your own values
 ```
 
-![05](https://img.shields.io/badge/05-Run-4A9EFF?style=flat-square&labelColor=0a0d1a) &nbsp; اجرا
+![05](https://img.shields.io/badge/05-Run-4A9EFF?style=flat-square&labelColor=0a0d1a) &nbsp; Run it
 
 ```bash
 python command_bot.py
@@ -238,7 +244,7 @@ python command_bot.py
 
 <div align="center">
 
-## `◈` استقرار (Deployment)
+## `◈` Deployment
 
 </div>
 
@@ -247,13 +253,13 @@ python command_bot.py
 <td align="center" width="230">
 
 **`◆` Railway / Render / Fly.io**
-<sub>رایگان و ۲۴/۷ — اتصال ریپو، تنظیم Start Command، افزودن Env Vars، دیپلوی</sub>
+<sub>Free & 24/7 — connect the repo, set the start command, add env vars, deploy</sub>
 
 </td>
 <td align="center" width="230">
 
 **`◆` GitHub Actions**
-<sub>ساخت `.github/workflows/daily.yml` برای گزارش‌های زمان‌بندی‌شده ۱۲ ساعته</sub>
+<sub>Add `.github/workflows/daily.yml` for scheduled reports every 12 hours</sub>
 
 </td>
 <td align="center" width="230">
@@ -276,16 +282,16 @@ docker run -d --name telebrief \
 
 <div align="center">
 
-## `◈` پشته فناوری
+## `◈` Tech Stack
 
 | Layer | Technology |
 |:-----:|:----------:|
-| **زبان** | Python 3.11+ |
-| **کلاینت تلگرام** | Telethon (MTProto) |
-| **فریم‌ورک بات** | python-telegram-bot |
-| **دروازه LLM** | xKiro (سازگار با OpenAI) |
-| **ذخیره‌سازی** | JSON |
-| **همزمانی** | asyncio |
+| **Language** | Python 3.11+ |
+| **Telegram client** | Telethon (MTProto) |
+| **Bot framework** | python-telegram-bot |
+| **LLM gateway** | xKiro (OpenAI-compatible) with Gemini fallback |
+| **Concurrency** | asyncio with a bounded fetch semaphore |
+| **Persistence** | JSON, written atomically |
 | **CI/CD** | GitHub Actions |
 
 </div>
@@ -298,7 +304,7 @@ docker run -d --name telebrief \
 
 <div align="center">
 
-## `◈` تنظیمات محیطی
+## `◈` Environment Configuration
 
 </div>
 
@@ -309,19 +315,26 @@ SESSION_STRING=YOUR_SESSION
 BOT_TOKEN=YOUR_TOKEN
 XKIRO_API_KEY=YOUR_KEY
 API_BASE_URL=https://api.xkiro.com/v1
-DEFAULT_MODEL=openai/gpt-5.6-luna
-FALLBACK_MODELS=z-ai/glm-5.3-flash
-HOURS_WINDOW=12
-BATCH_CHAR_LIMIT=12000
-MODEL_RETRIES=4
-ANALYSIS_CONCURRENCY=1
+DEFAULT_MODEL=deepseek/deepseek-v4-pro
+FALLBACK_MODELS=mistralai/mistral-medium-3.5
+GEMINI_API_KEY=YOUR_GEMINI_KEY
+GEMINI_MODEL=gemini-2.5-flash
+ADMIN_ID=YOUR_TELEGRAM_NUMERIC_ID
+HOURS_WINDOW=24
 CURRENCY_HOURS_WINDOW=6
+BATCH_CHAR_LIMIT=12000
+MODEL_RETRIES=3
+ANALYSIS_CONCURRENCY=1
+MAX_CONCURRENT_FETCHES=1
 ```
 
 ```python
-DEFAULT_MODEL = "openai/gpt-5.6-luna"     # سریع و ارزان
-FALLBACK_MODELS = "z-ai/glm-5.3-flash"    # استدلال بهتر
+DEFAULT_MODEL   = "deepseek/deepseek-v4-pro"        # primary reasoning model
+FALLBACK_MODELS = "mistralai/mistral-medium-3.5"    # comma-separated fallback chain
+GEMINI_MODEL    = "gemini-2.5-flash"                # last-resort fallback
 ```
+
+<sub>`ADMIN_ID` is the only account with access to `/stats`; the command stays silent for everyone else so it doesn't reveal itself.</sub>
 
 <br/>
 
@@ -331,34 +344,34 @@ FALLBACK_MODELS = "z-ai/glm-5.3-flash"    # استدلال بهتر
 
 <div align="center">
 
-## `◈` رفع اشکال
+## `◈` Troubleshooting
 
-<img src="https://readme-typing-svg.herokuapp.com?font=Share+Tech+Mono&size=13&duration=3000&pause=999999&color=4A9EFF&center=false&vCenter=true&width=500&height=28&lines=%E2%96%B6+%D9%85%D8%B4%DA%A9%D9%84%D8%A7%D8%AA+%D8%B1%D8%A7%DB%8C%D8%AC+%D9%88+%D8%B1%D8%A7%D9%87%E2%80%8C%D8%AD%D9%84"/>
+<img src="https://readme-typing-svg.herokuapp.com?font=Share+Tech+Mono&size=13&duration=3000&pause=999999&color=4A9EFF&center=false&vCenter=true&width=500&height=28&lines=%E2%96%B6+Common+issues+and+fixes"/>
 
 </div>
 
-**بات اجرا نمی‌شود**
+**Bot doesn't start**
 ```bash
 ps aux | grep command_bot.py
 kill -9 PID
-# دریافت توکن جدید از BotFather@
+# grab a fresh token from @BotFather
 ```
 
-**خطای 503 سرویس LLM**
+**LLM gateway returns a 503**
 ```bash
 curl https://api.xkiro.com/v1/models
-# سوییچ مدل
-DEFAULT_MODEL=openai/gpt-5.6-luna
+# switch models
+DEFAULT_MODEL=deepseek/deepseek-v4-pro
 ```
 
-**Session منقضی شده**
+**Session expired**
 ```
-اسکریپت SESSION_STRING بالا را دوباره اجرا کنید
+Re-run the SESSION_STRING script above
 ```
 
-**محدودیت نرخ**
+**Rate limited**
 ```
-ANALYSIS_CONCURRENCY=1 را کاهش دهید یا BATCH_CHAR_LIMIT=20000 را افزایش دهید
+Lower ANALYSIS_CONCURRENCY / MAX_CONCURRENT_FETCHES, or raise BATCH_CHAR_LIMIT=20000
 ```
 
 <br/>
@@ -369,17 +382,18 @@ ANALYSIS_CONCURRENCY=1 را کاهش دهید یا BATCH_CHAR_LIMIT=20000 را �
 
 <div align="center">
 
-## `◈` سوالات متداول
+## `◈` FAQ
 
 <small>
 
-| <sub>سوال</sub> | <sub>پاسخ</sub> |
+| <sub>Question</sub> | <sub>Answer</sub> |
 |:---|:---|
-| <sub>**دقت تحلیل چقدر است؟**</sub> | <sub>۸۰ تا ۹۰٪ در امتیازدهی اهمیت، آموزش‌دیده روی الگوهای فناوری/امنیت</sub> |
-| <sub>**می‌شود LLM خودمیزبان استفاده کرد؟**</sub> | <sub>بله — هر API سازگار با OpenAI (Ollama، LocalAI و...)</sub> |
-| <sub>**حریم خصوصی چطور است؟**</sub> | <sub>تحلیل محلی، بدون لاگ، مطابق با ToS ارائه‌دهنده API</sub> |
-| <sub>**افزودن کانال دلخواه؟**</sub> | <sub>با دستور `/addchannel` و وارد کردن `@channel_name`</sub> |
-| <sub>**چرا کند است؟**</sub> | <sub>بچ بزرگ یا LLM کند — `ANALYSIS_CONCURRENCY` را افزایش دهید</sub> |
+| <sub>**How accurate is the analysis?**</sub> | <sub>80–90% on importance scoring, tuned on tech/security patterns</sub> |
+| <sub>**Can I use a self-hosted LLM?**</sub> | <sub>Yes — any OpenAI-compatible API (Ollama, LocalAI, etc.)</sub> |
+| <sub>**What happens if the primary model fails?**</sub> | <sub>It automatically retries, then falls through the configured fallback models, then Gemini — never a fabricated report</sub> |
+| <sub>**How's privacy handled?**</sub> | <sub>Local analysis, no persistent logs, subject to your chosen API provider's ToS</sub> |
+| <sub>**Can I add my own channel?**</sub> | <sub>Yes — use `/addchannel` and send `@channel_name`</sub> |
+| <sub>**Why is it slow sometimes?**</sub> | <sub>Large batch size or a slow LLM response — try raising `ANALYSIS_CONCURRENCY`</sub> |
 
 </small>
 
@@ -393,19 +407,19 @@ ANALYSIS_CONCURRENCY=1 را کاهش دهید یا BATCH_CHAR_LIMIT=20000 را �
 
 <div align="center">
 
-## `◈` کانال‌های پیش‌فرض
+## `◈` Default Channels
 
 <table>
 <tr>
 <td align="center" width="330">
 
-**🧠 کانال‌های AI**
-<sub>@RoidBest · @Farda_Ai · @Lumosel · @asrnovin_ir · @perplexity · @cryptoquant_official · @Hugging_face_news · @arzdigitalb · @Artificial_intelligence_in · @DeepLearning_ai · @HomeAI · @Artificial_Intelligence_AI · @data_science_info</sub>
+**🧠 AI Channels**
+<sub>@RoidBest · @Farda_Ai · @Lumosel · @asrnovin_ir · @perplexity · @cryptoquant_official · @hiaimediaen · @Hugging_face_news · @samiotech · @arzdigitalb · @Artificial_intelligence_in · @DeepLearning_ai · @HomeAI · @Artificial_Intelligence_AI · @data_science_info</sub>
 
 </td>
 <td align="center" width="330">
 
-**🛡️ کانال‌های امنیتی**
+**🛡️ Security Channels**
 <sub>@cybersecurityexperts · @thehackernews · @cibsecurity · @Cyber_Security_Channel · @androidMalware · @cloudandcybersecurity · @itsecalert · @intsec · @topcybersecurity</sub>
 
 </td>
@@ -413,20 +427,20 @@ ANALYSIS_CONCURRENCY=1 را کاهش دهید یا BATCH_CHAR_LIMIT=20000 را �
 <tr>
 <td align="center" width="330">
 
-**🪙 کانال‌های کریپتو و جنگ**
+**🪙 Crypto & War Channels**
 <sub>@eco_ehsan · @Nobitexmag · @mihanblockchain · @helperhash · @whale_alert_io · @CoinDeskGlobal · @tokenbaz_com · @asiasarmayeh</sub>
 
 </td>
 <td align="center" width="330">
 
-**💵 کانال‌های دلار و طلا**
+**💵 USD & Gold Channels**
 <sub>@irancurrency · @TetherLand · @navasanchannel</sub>
 
 </td>
 </tr>
 </table>
 
-**افزودن کانال نامحدود از طریق منوی بات**
+**Add unlimited personal channels straight from the bot menu**
 
 </div>
 
@@ -438,16 +452,19 @@ ANALYSIS_CONCURRENCY=1 را کاهش دهید یا BATCH_CHAR_LIMIT=20000 را �
 
 <div align="center">
 
-## `◈` دستورات بات
+## `◈` Bot Commands
 
 ```
-/start          → راه‌اندازی، نمایش منوی اصلی
-/menu           → انتخاب سریع دسته‌بندی
-/ai             → خلاصه ۱۲ ساعت اخیر حوزه AI
-/security       → خلاصه ۱۲ ساعت اخیر حوزه امنیت
-/price          → نرخ لحظه‌ای دلار و طلای ۱۸ عیار
-/help           → راهنمای استفاده
-/about          → درباره پروژه
+/start          → boot up and show the main menu
+/menu           → quick category picker
+/ai             → latest AI digest
+/security       → latest cybersecurity digest
+/crypto         → crypto market & geopolitical risk report
+/addchannel     → add a personal channel to your feed
+/price          → live USD & 18k gold rates
+/help           → usage guide
+/about          → about TeleBrief
+/stats          → admin-only usage analytics
 ```
 
 </div>
@@ -460,13 +477,13 @@ ANALYSIS_CONCURRENCY=1 را کاهش دهید یا BATCH_CHAR_LIMIT=20000 را �
 
 <div align="center">
 
-## `◈` مشارکت (Contributing)
+## `◈` Contributing
 
-1. Fork کردن ریپو
-2. ساخت برنچ: `git checkout -b feature/your-idea`
-3. کامیت: `git commit -m 'feat: description'`
-4. پوش: `git push origin feature/your-idea`
-5. باز کردن Pull Request
+1. Fork the repo
+2. Create a branch: `git checkout -b feature/your-idea`
+3. Commit: `git commit -m 'feat: description'`
+4. Push: `git push origin feature/your-idea`
+5. Open a Pull Request
 
 </div>
 
@@ -478,7 +495,7 @@ ANALYSIS_CONCURRENCY=1 را کاهش دهید یا BATCH_CHAR_LIMIT=20000 را �
 
 <div align="center">
 
-## `◈` سازنده
+## `◈` Creator
 
 <br/>
 
@@ -506,7 +523,7 @@ ANALYSIS_CONCURRENCY=1 را کاهش دهید یا BATCH_CHAR_LIMIT=20000 را �
 </tr>
 </table>
 
-⭐ **اگر این پروژه به دردتان خورد، یک ستاره بدهید!**
+⭐ **If this project is useful to you, drop a star!**
 
 </div>
 
@@ -518,16 +535,16 @@ ANALYSIS_CONCURRENCY=1 را کاهش دهید یا BATCH_CHAR_LIMIT=20000 را �
 
 <div align="center">
 
-## `◈` لایسنس
+## `◈` License
 
-پروژه تحت مجوز **MIT License** منتشر شده — جزئیات کامل در فایل [LICENSE](LICENSE)
+Released under the **MIT License** — full details in [LICENSE](LICENSE)
 
 <br/>
 
-<img src="https://readme-typing-svg.herokuapp.com?font=Share+Tech+Mono&weight=700&size=15&duration=3500&pause=900&color=4A9EFF&center=true&vCenter=true&width=720&height=50&lines=%E2%96%B6+Engineered+by+Amin+Moniry;%E2%97%8F+One+Feed.+Two+Stages.+Zero+Noise.;%E2%96%B6+Telethon+%C2%B7+DeepSeek+%C2%B7+OpenAI+%C2%B7+2025"/>
+<img src="https://readme-typing-svg.herokuapp.com?font=Share+Tech+Mono&weight=700&size=15&duration=3500&pause=900&color=4A9EFF&center=true&vCenter=true&width=720&height=50&lines=%E2%96%B6+Engineered+by+Amin+Moniry;%E2%97%8F+One+Feed.+Two+Stages.+Zero+Noise.;%E2%96%B6+Telethon+%C2%B7+DeepSeek+%C2%B7+OpenAI+%C2%B7+Gemini+%C2%B7+2026"/>
 
 <br/>
 
 <img src="https://capsule-render.vercel.app/api?type=venom&color=0:0a0d1a,50:1a2a5e,100:0a0d1a&height=160&section=footer&text=Built%20with%20intelligence%20%E2%80%94%20TeleBrief&fontSize=26&fontAlign=50&fontAlignY=55&fontColor=4A9EFF&animation=fadeIn&stroke=4A9EFF&strokeWidth=0.5" width="100%"/>
 
-</div>cc
+</div>
