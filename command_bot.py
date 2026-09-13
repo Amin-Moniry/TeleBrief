@@ -19,7 +19,8 @@ from telegram.ext import (
 from digest_core import (
     ADMIN_ID, BOT_TOKEN,
     CURRENCY_HOURS_WINDOW, fetch_queue_busy, format_currency_digest, format_date_header,
-    format_story, prepare_currency_digest, prepare_digest,
+    format_market_highlight, format_market_overview, format_story,
+    prepare_currency_digest, prepare_digest, prepare_market_digest,
 )
 
 APP_NAME = "TeleBrief"
@@ -154,7 +155,7 @@ def save_state(state: dict) -> None:
         logger.exception("ذخیره فایل وضعیت ناموفق بود")
 
 
-CATEGORY_NAMES = {"ai": "هوش مصنوعی", "security": "امنیت شبکه", "currency": "دلار و طلا"}
+CATEGORY_NAMES = {"ai": "هوش مصنوعی", "security": "امنیت شبکه", "currency": "دلار و طلا", "crypto": "کریپتو و اخبار جنگ"}
 
 
 def touch_user(user_id: int, user=None) -> bool:
@@ -229,7 +230,8 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🌀 هوش مصنوعی", callback_data="digest:ai"),
          InlineKeyboardButton("🌀 امنیت شبکه", callback_data="digest:security")],
-        [InlineKeyboardButton("🌀 دلار و طلا", callback_data="digest:currency")],
+        [InlineKeyboardButton("🌀 دلار و طلا", callback_data="digest:currency"),
+         InlineKeyboardButton("🌀 کریپتو و اخبار جنگ", callback_data="digest:crypto")],
         [InlineKeyboardButton("🌀 کانال‌های من", callback_data="page:channels"),
          InlineKeyboardButton("🌀 راهنما", callback_data="page:help")],
         [InlineKeyboardButton("🌀 درباره ربات", callback_data="page:about")],
@@ -582,6 +584,107 @@ async def build_and_send_currency_report(
             )
 
 
+CRYPTO_LOADING_STAGES = (
+    "اتصال به کانال‌های بازار",
+    "جمع‌آوری اخبار رمزارز و جنگ",
+    "تفکیک نکات مهم از حاشیه",
+    "نوشتن گزارش نهایی",
+)
+
+
+async def build_and_send_market_report(
+    context: ContextTypes.DEFAULT_TYPE,
+    chat_id: int,
+    user_id: int,
+    hours: int,
+    status_message,
+) -> None:
+    """مکانیزمش با build_and_send_report فرق دارد: به‌جای فهرست خبر
+    رتبه‌بندی‌شده و صفحه‌بندی «بیشتر»، یک گزارش کامل در چند پیام می‌فرستد —
+    پیام اول روایت کلی وضعیت بازار، پیام‌های بعدی نکات مهمِ منبع‌دار."""
+    record_request(user_id, "crypto")
+    lock = user_locks[user_id]
+    async with lock:
+        loading_task = asyncio.create_task(
+            animate_loading(status_message, "کریپتو و اخبار جنگ", hours, CRYPTO_LOADING_STAGES)
+        )
+        try:
+            await asyncio.sleep(0.05)
+            await status_message.edit_text(
+                "🔎 <b>بررسی عمیق بازار کریپتو و اخبار جنگ</b>\n\n"
+                f"در حال خواندن کانال‌های بازار و تحلیل پیام‌های {hours} ساعت اخیر...\n"
+                f"<blockquote>بازه انتخاب‌شده: {hours} ساعت</blockquote>\n"
+                "<blockquote expandable>وضعیت کلی بازار و ریسک‌های جنگ/ژئوپلیتیک مؤثر بر آن جمع‌بندی می‌شود.</blockquote>",
+                parse_mode=ParseMode.HTML,
+            )
+            result = await prepare_market_digest(hours=hours)
+            loading_task.cancel()
+            await asyncio.gather(loading_task, return_exceptions=True)
+            highlights = result["highlights"]
+            await status_message.edit_text(
+                format_market_overview(
+                    hours, result["total_messages"], result["active_channels"], result["overview"]
+                ),
+                parse_mode=ParseMode.HTML,
+                disable_web_page_preview=True,
+            )
+            if not highlights:
+                await context.bot.send_message(
+                    chat_id=chat_id,
+                    text=(
+                        "📌 <b>نکته منبع‌دار مجزایی پیدا نشد</b>\n\n"
+                        "وضعیت کلی بازار در پیام بالا آمد."
+                    ),
+                    parse_mode=ParseMode.HTML,
+                    reply_markup=back_keyboard(),
+                )
+                return
+            for rank, item in enumerate(highlights, start=1):
+                await context.bot.send_message(
+                    chat_id=chat_id,
+                    text=format_market_highlight(item, rank),
+                    parse_mode=ParseMode.HTML,
+                    disable_web_page_preview=True,
+                )
+                await asyncio.sleep(0.35)
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=f"✅ <b>گزارش بازار کریپتو کامل شد</b>\n\n{fa_num(len(highlights))} نکته مهم با منبع مستقیم ارسال شد.",
+                parse_mode=ParseMode.HTML,
+                reply_markup=back_keyboard(),
+            )
+        except asyncio.CancelledError:
+            loading_task.cancel()
+            await asyncio.gather(loading_task, return_exceptions=True)
+            logger.info("گزارش بازار کریپتو برای کاربر %s توسط خودش لغو شد", user_id)
+            try:
+                await status_message.edit_text(
+                    "❌ <b>گزارش لغو شد</b>\n\nهر وقت خواستی از منو دوباره درخواست بده.",
+                    parse_mode=ParseMode.HTML,
+                    reply_markup=back_keyboard(),
+                )
+            except Exception:
+                logger.debug("ویرایش پیام لغو ناموفق بود", exc_info=True)
+        except Exception as exc:
+            loading_task.cancel()
+            await asyncio.gather(loading_task, return_exceptions=True)
+            logger.exception("گزارش بازار کریپتو برای کاربر %s ناموفق بود", user_id)
+            is_model_outage = (
+                "سرویس مدل" in str(exc)
+                or "مدل در دسترس نیست" in str(exc)
+                or "503" in str(exc)
+            )
+            message = (
+                "⚠️ <b>سرویس تحلیل هوش مصنوعی پاسخ نمی‌دهد</b>\n\n"
+                "پیام‌ها دریافت شدند، اما سرویس مدل بعد از چند تلاش خطای موقت داد."
+                if is_model_outage else
+                "⚠️ <b>ساخت گزارش کامل نشد</b>\n\nچند دقیقه دیگر دوباره امتحان کن."
+            )
+            await status_message.edit_text(
+                message, parse_mode=ParseMode.HTML, reply_markup=back_keyboard()
+            )
+
+
 async def price_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.effective_user.id
     touch_user(user_id, update.effective_user)
@@ -634,13 +737,21 @@ async def custom_hours_message(update: Update, context: ContextTypes.DEFAULT_TYP
     status = await update.effective_message.reply_text(
         "⏳ <b>در حال شروع بررسی...</b>" + queue_notice, parse_mode=ParseMode.HTML
     )
-    start_report_task(
-        build_and_send_report(
-            context, update.effective_chat.id, update.effective_user.id,
-            category, hours, status,
-        ),
-        update.effective_user.id,
-    )
+    if category == "crypto":
+        start_report_task(
+            build_and_send_market_report(
+                context, update.effective_chat.id, update.effective_user.id, hours, status,
+            ),
+            update.effective_user.id,
+        )
+    else:
+        start_report_task(
+            build_and_send_report(
+                context, update.effective_chat.id, update.effective_user.id,
+                category, hours, status,
+            ),
+            update.effective_user.id,
+        )
 
 
 def channels_page_text(channels: list[str]) -> str:
@@ -907,7 +1018,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             user.id,
         )
         return
-    if data in {"digest:ai", "digest:security"}:
+    if data in {"digest:ai", "digest:security", "digest:crypto"}:
         category = data.split(":", 1)[1]
         context.user_data.pop("awaiting_hours", None)
         await query.edit_message_text(
@@ -934,13 +1045,21 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             await query.answer("گزارش قبلی هنوز در حال آماده‌شدن است.", show_alert=True)
             return
         context.user_data.pop("awaiting_hours", None)
-        start_report_task(
-            build_and_send_report(
-                context, query.message.chat_id, user.id,
-                category, int(raw_hours), query.message,
-            ),
-            user.id,
-        )
+        if category == "crypto":
+            start_report_task(
+                build_and_send_market_report(
+                    context, query.message.chat_id, user.id, int(raw_hours), query.message,
+                ),
+                user.id,
+            )
+        else:
+            start_report_task(
+                build_and_send_report(
+                    context, query.message.chat_id, user.id,
+                    category, int(raw_hours), query.message,
+                ),
+                user.id,
+            )
         return
 
 
