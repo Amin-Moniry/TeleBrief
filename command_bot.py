@@ -47,17 +47,19 @@ JOIN_CHECK_CALLBACK = "join:check"
 
 def join_required_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("📢 عضویت در کانال", url=REQUIRED_CHANNEL_LINK)],
-        [InlineKeyboardButton("✅ عضو شدم، بررسی کن", callback_data=JOIN_CHECK_CALLBACK)],
+        [InlineKeyboardButton("☑️ عضویت در کانال", url=REQUIRED_CHANNEL_LINK)],
+        [InlineKeyboardButton("🔓 عضو شدم، بررسی کن", callback_data=JOIN_CHECK_CALLBACK)],
     ])
 
 
-def join_required_text() -> str:
+def join_required_text(first_name: str = "") -> str:
+    name = html.escape(first_name or "دوست عزیز")
     return (
-        "\u200f🔒 <b>دسترسی به ربات قفل است</b>\n\n"
-        "\u200fبرای استفاده از TeleBrief، اول باید عضو کانال زیر بشی:\n\n"
-        f"\u200f<a href=\"{REQUIRED_CHANNEL_LINK}\">{REQUIRED_CHANNEL_LABEL}</a> ➣ <b>{REQUIRED_CHANNEL_DISPLAY}</b>\n\n"
-        "\u200fبعد از عضویت، روی دکمه «✅ عضو شدم، بررسی کن» بزن تا دسترسی باز شود."
+        f"\u200fسلام {name} عزیز 🌹\n\n"
+        "\u200fخوشحالیم که به TeleBrief سر زدید. برای استفاده از امکانات ربات، "
+        "لازم است ابتدا عضو کانال زیر شوید:\n\n"
+        f"\u200f<blockquote>💠 <a href=\"{REQUIRED_CHANNEL_LINK}\">{REQUIRED_CHANNEL_LABEL}</a> ➣ <b>{REQUIRED_CHANNEL_DISPLAY}</b></blockquote>\n\n"
+        "\u200fپس از عضویت، کافی‌ست روی دکمه زیر بزنید تا بلافاصله دسترسی کامل برایتان فعال شود. 🔓"
     )
 
 
@@ -83,9 +85,10 @@ async def is_channel_member(context: ContextTypes.DEFAULT_TYPE, user_id: int) ->
 
 async def send_join_wall(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = update.effective_message
+    user = update.effective_user
     if message is not None:
         await message.reply_text(
-            join_required_text(),
+            join_required_text(user.first_name if user else ""),
             parse_mode=ParseMode.HTML,
             reply_markup=join_required_keyboard(),
             disable_web_page_preview=True,
@@ -227,14 +230,16 @@ def back_keyboard() -> InlineKeyboardMarkup:
 
 def welcome_text(first_name: str, is_new: bool) -> str:
     name = html.escape(first_name or "دوست عزیز")
-    greeting = "خوش اومدی" if is_new else "خوش برگشتی"
     return (
-        f"👋 <b>سلام {name}، {greeting}!</b>\n\n"
-        f"من <b>{APP_NAME}</b> هستم: همه کانال‌های تنظیم‌شده را بررسی می‌کنم، "
-        "نویز و خبرهای تکراری را حذف می‌کنم و مهم‌ترین یافته‌ها را با لینک مستقیم می‌فرستم.\n\n"
-        f"<blockquote>بازه پیش‌فرض: {HOURS_WINDOW} ساعت\n"
-        "خروجی: خلاصه رتبه‌بندی‌شده، نکات کلیدی و منبع مستقیم</blockquote>\n\n"
-        "یک گزارش را انتخاب کن:")
+        f"👋 <b>سلام {name} عزیز، خوش اومدی!</b>\n\n"
+        f"من <b>{APP_NAME}</b> هستم؛ دستیاری برای رصد و تحلیل اخبار در حوزه‌های "
+        "هوش مصنوعی، امنیت سایبری و بازار دلار و طلا.\n\n"
+        "پیام‌های مهم را شناسایی می‌کنم، موارد کم‌ارزش و تکراری را کنار می‌گذارم "
+        "و نتیجه را به‌صورت خلاصه و رتبه‌بندی‌شده، همراه با منبع مستقیم هر خبر، "
+        "در اختیارتان قرار می‌دهم.\n\n"
+        "<blockquote>بازه زمانی بررسی کاملاً در اختیار شماست\n"
+        "خروجی شامل خلاصه‌ی هر خبر، نکات کلیدی آن و لینک مستقیم به منبع است</blockquote>\n\n"
+        "در خدمت شما هستیم ، از طریق دکمه‌های زیر می‌توانید از امکانات ربات استفاده کنید :")
 
 
 HELP_TEXT = (
@@ -610,7 +615,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if not await is_channel_member(context, user.id):
         await query.answer()
         await query.edit_message_text(
-            join_required_text(),
+            join_required_text(user.first_name),
             parse_mode=ParseMode.HTML,
             reply_markup=join_required_keyboard(),
             disable_web_page_preview=True,
