@@ -619,7 +619,7 @@ def format_last_seen(iso_str: str) -> str:
         dt = datetime.fromisoformat(iso_str)
     except (ValueError, TypeError):
         return "نامشخص"
-    return fa_num(dt.strftime("%Y/%m/%d %H:%M"))
+    return fa_num(dt.strftime("%Y/%m/%d  -  %H:%M"))
 
 
 def build_stats_report() -> tuple[str, list[str]]:
@@ -638,8 +638,7 @@ def build_stats_report() -> tuple[str, list[str]]:
     top_category = max(category_totals.items(), key=lambda kv: kv[1], default=(None, 0))
 
     lines = [
-        "📊 <b>آمار ربات TeleBrief</b>",
-        "▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️",
+        "<blockquote>📊 آمار ربات TeleBrief</blockquote>",
         "",
         f"👥 کاربران: <b>{fa_num(total_users)}</b>",
         f"✨ جدید امروز: <b>{fa_num(new_today)}</b>",
@@ -671,7 +670,7 @@ def build_stats_report() -> tuple[str, list[str]]:
         fav_text = f" — محبوب: {CATEGORY_NAMES.get(fav[0], fav[0])}" if fav[0] else ""
         last_seen = format_last_seen(u.get("last_interaction", ""))
         rows.append(
-            f"☆ <b>کاربر {fa_num(rank)}:</b> {name}{username}\n"
+            f"<blockquote>☆ کاربر {fa_num(rank)}: {name}{username}</blockquote>\n"
             f"♡ {fa_num(reqs)} درخواست{fav_text} — آخرین فعالیت: {last_seen}\n"
             f"<i>شناسه: {uid}</i>"
         )
