@@ -609,6 +609,14 @@ def fa_num(value) -> str:
     return str(value).translate(_FA_DIGITS)
 
 
+def format_last_seen(iso_str: str) -> str:
+    try:
+        dt = datetime.fromisoformat(iso_str)
+    except (ValueError, TypeError):
+        return "نامشخص"
+    return fa_num(dt.strftime("%Y/%m/%d %H:%M"))
+
+
 def build_stats_report() -> tuple[str, list[str]]:
     """خلاصه آمار کلی + صفحه‌های لیست کامل کاربران (برای رعایت محدودیت طول پیام تلگرام)."""
     state = load_state()
@@ -656,9 +664,11 @@ def build_stats_report() -> tuple[str, list[str]]:
         by_cat = u.get("requests_by_category", {})
         fav = max(by_cat.items(), key=lambda kv: kv[1], default=(None, 0))
         fav_text = f" — محبوب: {CATEGORY_NAMES.get(fav[0], fav[0])}" if fav[0] else ""
+        last_seen = format_last_seen(u.get("last_interaction", ""))
         rows.append(
-            f"<b>{fa_num(rank)}.</b> {name}{username} — {fa_num(reqs)} درخواست{fav_text}"
-            f"\n<i>id: {uid}</i>"
+            f"☆ <b>کاربر {fa_num(rank)}:</b> {name}{username}\n"
+            f"♡ {fa_num(reqs)} درخواست{fav_text} — آخرین فعالیت: {last_seen}\n"
+            f"<i>شناسه: {uid}</i>"
         )
 
     pages, chunk, chunk_len = [], [], 0
