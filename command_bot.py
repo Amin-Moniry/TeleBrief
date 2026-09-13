@@ -601,6 +601,14 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return
 
 
+_FA_DIGITS = str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹")
+
+
+def fa_num(value) -> str:
+    """نمایش عدد با ارقام فارسی، هم‌راستا با بقیه متن راست‌به‌چپ."""
+    return str(value).translate(_FA_DIGITS)
+
+
 def build_stats_report() -> tuple[str, list[str]]:
     """خلاصه آمار کلی + صفحه‌های لیست کامل کاربران (برای رعایت محدودیت طول پیام تلگرام)."""
     state = load_state()
@@ -618,44 +626,50 @@ def build_stats_report() -> tuple[str, list[str]]:
 
     lines = [
         "📊 <b>آمار ربات TeleBrief</b>",
+        "▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️",
         "",
-        f"👥 مجموع کاربران: <b>{total_users}</b>",
-        f"🆕 کاربر جدید امروز: <b>{new_today}</b>",
-        f"📨 مجموع درخواست‌ها: <b>{total_requests}</b>",
+        f"👥 کاربران: <b>{fa_num(total_users)}</b>",
+        f"✨ جدید امروز: <b>{fa_num(new_today)}</b>",
+        f"📨 درخواست‌ها: <b>{fa_num(total_requests)}</b>",
     ]
     if category_totals:
-        cat_lines = "\n".join(
-            f"  • {CATEGORY_NAMES.get(cat, cat)}: {count}"
-            for cat, count in sorted(category_totals.items(), key=lambda kv: -kv[1])
-        )
-        lines.append("\n🗂 <b>درخواست به تفکیک موضوع</b>\n" + cat_lines)
+        lines.append("")
+        lines.append("🗂 <b>به تفکیک موضوع</b>")
+        icons = {"ai": "🤖", "security": "🛡", "currency": "💵"}
+        for cat, count in sorted(category_totals.items(), key=lambda kv: -kv[1]):
+            icon = icons.get(cat, "•")
+            lines.append(f"{icon} {CATEGORY_NAMES.get(cat, cat)}: {fa_num(count)}")
         if top_category[0]:
+            lines.append("")
             lines.append(
-                f"\n🏆 پرطرفدارترین موضوع: <b>{CATEGORY_NAMES.get(top_category[0], top_category[0])}</b> "
-                f"({top_category[1]} درخواست)"
+                f"🏆 پرطرفدار: <b>{CATEGORY_NAMES.get(top_category[0], top_category[0])}</b>"
+                f" ({fa_num(top_category[1])} درخواست)"
             )
     summary = "\n".join(lines)
 
     ranked = sorted(users.items(), key=lambda kv: kv[1].get("total_requests", 0), reverse=True)
     rows = []
     for rank, (uid, u) in enumerate(ranked, start=1):
-        name = u.get("first_name") or "—"
-        username = f" @{u['username']}" if u.get("username") else ""
+        name = html.escape(u.get("first_name") or "—")
+        username = f" @{html.escape(u['username'])}" if u.get("username") else ""
         reqs = u.get("total_requests", 0)
         by_cat = u.get("requests_by_category", {})
         fav = max(by_cat.items(), key=lambda kv: kv[1], default=(None, 0))
-        fav_text = f" | محبوب: {CATEGORY_NAMES.get(fav[0], fav[0])}" if fav[0] else ""
-        rows.append(f"{rank}. {name}{username} (id:{uid}) — {reqs} درخواست{fav_text}")
+        fav_text = f" — محبوب: {CATEGORY_NAMES.get(fav[0], fav[0])}" if fav[0] else ""
+        rows.append(
+            f"<b>{fa_num(rank)}.</b> {name}{username} — {fa_num(reqs)} درخواست{fav_text}"
+            f"\n<i>id: {uid}</i>"
+        )
 
     pages, chunk, chunk_len = [], [], 0
     for row in rows:
         if chunk_len + len(row) + 1 > 3500:
-            pages.append("\n".join(chunk))
+            pages.append("\n\n".join(chunk))
             chunk, chunk_len = [], 0
         chunk.append(row)
         chunk_len += len(row) + 1
     if chunk:
-        pages.append("\n".join(chunk))
+        pages.append("\n\n".join(chunk))
 
     return summary, pages
 
@@ -669,10 +683,8 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if not pages:
         return
     for i, page in enumerate(pages, start=1):
-        header = f"👤 <b>لیست کاربران</b> (صفحه {i}/{len(pages)})\n\n"
-        await update.effective_message.reply_text(
-            header + f"<pre>{html.escape(page)}</pre>", parse_mode=ParseMode.HTML
-        )
+        header = f"👤 <b>لیست کاربران</b> — صفحه {fa_num(i)}/{fa_num(len(pages))}\n\n"
+        await update.effective_message.reply_text(header + page, parse_mode=ParseMode.HTML)
 
 
 async def post_init(application: Application) -> None:
@@ -687,7 +699,7 @@ async def post_init(application: Application) -> None:
     if ADMIN_ID:
         try:
             await application.bot.set_my_commands(
-                default_commands + [BotCommand("stats", "📊 آمار ربات (فقط ادمین)")],
+                default_commands + [BotCommand("stats", "آمار ربات (فقط ادمین)")],
                 scope=BotCommandScopeChat(chat_id=ADMIN_ID),
             )
         except Exception:
