@@ -54,6 +54,8 @@ MODEL_RETRIES = max(1, min(env_int("MODEL_RETRIES", 3), 3))
 PRIMARY_MODEL_RETRIES = max(1, min(env_int("PRIMARY_MODEL_RETRIES", 1), 3))
 MODEL_TIMEOUT = max(20, env_int("MODEL_TIMEOUT", 90))
 ANALYSIS_CONCURRENCY = max(1, env_int("ANALYSIS_CONCURRENCY", 1))
+ADMIN_ID = env_int("ADMIN_ID", 0)  # آیدی عددی تلگرام شما؛ فقط همین آیدی به /stats دسترسی دارد
+MY_CHAT_ID = env_int("MY_CHAT_ID", 0) or ADMIN_ID  # چت مقصد برای اجرای مستقل main.py؛ اگر MY_CHAT_ID جدا ست نشود از ADMIN_ID استفاده می‌شود
 
 SECURITY_CHANNELS = [
     "cybersecurityexperts", "thehackernews", "cibsecurity",
@@ -931,6 +933,22 @@ async def run_digest(
     hours: int = HOURS_WINDOW,
     include_date_header: bool = False,
     category: str = "security",
-) -> dict[str, Any]:
-    """نام سازگار با نسخه قبلی؛ ارسال و صفحه‌بندی اکنون در command_bot انجام می‌شود."""
-    return await prepare_digest(hours=hours, category=category)
+) -> int:
+    """برای اجرای مستقل/زمان‌بندی‌شده (مثلاً از main.py روی Railway).
+
+    نسخه قبلی این تابع فقط prepare_digest را صدا می‌زد و هیچ پیامی ارسال نمی‌کرد —
+    یعنی حتی با chat_id درست هم چیزی به تلگرام نمی‌رسید. این نسخه واقعاً هر خبر را
+    با send_message می‌فرستد و تعداد پیام‌های ارسال‌شده را برمی‌گرداند.
+    """
+    if not chat_id:
+        raise ValueError("برای ارسال گزارش باید chat_id مشخص باشد (مثلاً از طریق MY_CHAT_ID در .env).")
+    result = await prepare_digest(hours=hours, category=category)
+    stories = result["stories"]
+    if include_date_header:
+        await send_message(
+            chat_id,
+            format_date_header(hours, result["total_messages"], result["active_channels"]),
+        )
+    for rank, story in enumerate(stories, start=1):
+        await send_message(chat_id, format_story(story, rank, category))
+    return len(stories)

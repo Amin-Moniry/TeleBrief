@@ -5,7 +5,9 @@ from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 
-from telegram import BotCommand, InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import (
+    BotCommand, BotCommandScopeChat, InlineKeyboardButton, InlineKeyboardMarkup, Update,
+)
 from telegram.constants import ParseMode
 from telegram.error import BadRequest
 from telegram.ext import (
@@ -14,7 +16,7 @@ from telegram.ext import (
 )
 
 from digest_core import (
-    AI_CHANNELS, SECURITY_CHANNELS, BOT_TOKEN, HOURS_WINDOW,
+    ADMIN_ID, AI_CHANNELS, SECURITY_CHANNELS, BOT_TOKEN, HOURS_WINDOW,
     CURRENCY_HOURS_WINDOW, format_currency_digest, format_date_header,
     format_story, prepare_currency_digest, prepare_digest,
 )
@@ -50,15 +52,38 @@ def save_state(state: dict) -> None:
         logger.exception("ذخیره فایل وضعیت ناموفق بود")
 
 
-def touch_user(user_id: int) -> bool:
+CATEGORY_NAMES = {"ai": "هوش مصنوعی", "security": "امنیت سایبری", "currency": "دلار و طلا"}
+
+
+def touch_user(user_id: int, user=None) -> bool:
     state = load_state()
     users = state.setdefault("users", {})
     key = str(user_id)
     is_new = key not in users
     now = datetime.now().isoformat(timespec="seconds")
-    users.setdefault(key, {"first_seen": now})["last_interaction"] = now
+    entry = users.setdefault(key, {"first_seen": now, "total_requests": 0, "requests_by_category": {}})
+    entry["last_interaction"] = now
+    if user is not None:
+        # فقط برای شناسایی راحت‌تر کاربر در آمار ادمین؛ در جای دیگری استفاده نمی‌شود
+        entry["first_name"] = user.first_name or entry.get("first_name", "")
+        entry["username"] = user.username or entry.get("username", "")
     save_state(state)
     return is_new
+
+
+def record_request(user_id: int, category: str) -> None:
+    """هر بار که کاربر یک گزارش واقعی درخواست می‌کند (AI/امنیت/دلار) صدا زده می‌شود."""
+    state = load_state()
+    key = str(user_id)
+    now = datetime.now().isoformat(timespec="seconds")
+    entry = state.setdefault("users", {}).setdefault(
+        key, {"first_seen": now, "total_requests": 0, "requests_by_category": {}}
+    )
+    entry["total_requests"] = entry.get("total_requests", 0) + 1
+    by_category = entry.setdefault("requests_by_category", {})
+    by_category[category] = by_category.get(category, 0) + 1
+    entry["last_interaction"] = now
+    save_state(state)
 
 
 def user_prefs(user_id: int) -> dict:
@@ -164,7 +189,7 @@ ABOUT_TEXT = (
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
-    is_new = touch_user(user.id)
+    is_new = touch_user(user.id, user)
     await update.effective_message.reply_text(
         welcome_text(user.first_name, is_new),
         parse_mode=ParseMode.HTML,
@@ -174,7 +199,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    touch_user(update.effective_user.id)
+    touch_user(update.effective_user.id, update.effective_user)
     await update.effective_message.reply_text(
         "🗞 <b>چه گزارشی می‌خوای؟</b>\n\nدسته موردنظرت را انتخاب کن:",
         parse_mode=ParseMode.HTML,
@@ -280,6 +305,7 @@ async def build_and_send_report(
     status_message,
 ) -> None:
     category_name = "هوش مصنوعی" if category == "ai" else "امنیت سایبری"
+    record_request(user_id, category)
     lock = user_locks[user_id]
     async with lock:
         loading_task = asyncio.create_task(
@@ -366,6 +392,7 @@ async def build_and_send_currency_report(
     user_id: int,
     status_message,
 ) -> None:
+    record_request(user_id, "currency")
     lock = user_locks[user_id]
     async with lock:
         loading_task = asyncio.create_task(
@@ -403,7 +430,7 @@ async def build_and_send_currency_report(
 
 async def price_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.effective_user.id
-    touch_user(user_id)
+    touch_user(user_id, update.effective_user)
     if user_locks[user_id].locked():
         await update.effective_message.reply_text("گزارش قبلی هنوز آماده نشده.")
         return
@@ -478,7 +505,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     query = update.callback_query
     data = query.data or ""
     user = query.from_user
-    touch_user(user.id)
+    touch_user(user.id, user)
 
     if data.startswith("hours:") and user_locks[user.id].locked():
         await query.answer("گزارش قبلی هنوز در حال آماده‌شدن است.", show_alert=True)
@@ -574,14 +601,97 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return
 
 
+def build_stats_report() -> tuple[str, list[str]]:
+    """خلاصه آمار کلی + صفحه‌های لیست کامل کاربران (برای رعایت محدودیت طول پیام تلگرام)."""
+    state = load_state()
+    users = state.get("users", {})
+    total_users = len(users)
+    today = datetime.now().date().isoformat()
+    new_today = sum(1 for u in users.values() if str(u.get("first_seen", "")).startswith(today))
+    total_requests = sum(u.get("total_requests", 0) for u in users.values())
+
+    category_totals: dict[str, int] = defaultdict(int)
+    for u in users.values():
+        for cat, count in u.get("requests_by_category", {}).items():
+            category_totals[cat] += count
+    top_category = max(category_totals.items(), key=lambda kv: kv[1], default=(None, 0))
+
+    lines = [
+        "📊 <b>آمار ربات TeleBrief</b>",
+        "",
+        f"👥 مجموع کاربران: <b>{total_users}</b>",
+        f"🆕 کاربر جدید امروز: <b>{new_today}</b>",
+        f"📨 مجموع درخواست‌ها: <b>{total_requests}</b>",
+    ]
+    if category_totals:
+        cat_lines = "\n".join(
+            f"  • {CATEGORY_NAMES.get(cat, cat)}: {count}"
+            for cat, count in sorted(category_totals.items(), key=lambda kv: -kv[1])
+        )
+        lines.append("\n🗂 <b>درخواست به تفکیک موضوع</b>\n" + cat_lines)
+        if top_category[0]:
+            lines.append(
+                f"\n🏆 پرطرفدارترین موضوع: <b>{CATEGORY_NAMES.get(top_category[0], top_category[0])}</b> "
+                f"({top_category[1]} درخواست)"
+            )
+    summary = "\n".join(lines)
+
+    ranked = sorted(users.items(), key=lambda kv: kv[1].get("total_requests", 0), reverse=True)
+    rows = []
+    for rank, (uid, u) in enumerate(ranked, start=1):
+        name = u.get("first_name") or "—"
+        username = f" @{u['username']}" if u.get("username") else ""
+        reqs = u.get("total_requests", 0)
+        by_cat = u.get("requests_by_category", {})
+        fav = max(by_cat.items(), key=lambda kv: kv[1], default=(None, 0))
+        fav_text = f" | محبوب: {CATEGORY_NAMES.get(fav[0], fav[0])}" if fav[0] else ""
+        rows.append(f"{rank}. {name}{username} (id:{uid}) — {reqs} درخواست{fav_text}")
+
+    pages, chunk, chunk_len = [], [], 0
+    for row in rows:
+        if chunk_len + len(row) + 1 > 3500:
+            pages.append("\n".join(chunk))
+            chunk, chunk_len = [], 0
+        chunk.append(row)
+        chunk_len += len(row) + 1
+    if chunk:
+        pages.append("\n".join(chunk))
+
+    return summary, pages
+
+
+async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """فقط برای ادمین؛ برای هر کس دیگری کاملاً سکوت می‌کند تا وجود دستور فاش نشود."""
+    if not ADMIN_ID or update.effective_user.id != ADMIN_ID:
+        return
+    summary, pages = build_stats_report()
+    await update.effective_message.reply_text(summary, parse_mode=ParseMode.HTML)
+    if not pages:
+        return
+    for i, page in enumerate(pages, start=1):
+        header = f"👤 <b>لیست کاربران</b> (صفحه {i}/{len(pages)})\n\n"
+        await update.effective_message.reply_text(
+            header + f"<pre>{html.escape(page)}</pre>", parse_mode=ParseMode.HTML
+        )
+
+
 async def post_init(application: Application) -> None:
-    await application.bot.set_my_commands([
+    default_commands = [
         BotCommand("start", "شروع و نمایش منوی اصلی"),
         BotCommand("menu", "انتخاب دسته خبری"),
         BotCommand("price", "نرخ لحظه‌ای دلار و طلا"),
         BotCommand("help", "راهنمای استفاده"),
         BotCommand("about", "معرفی TeleBrief"),
-    ])
+    ]
+    await application.bot.set_my_commands(default_commands)
+    if ADMIN_ID:
+        try:
+            await application.bot.set_my_commands(
+                default_commands + [BotCommand("stats", "📊 آمار ربات (فقط ادمین)")],
+                scope=BotCommandScopeChat(chat_id=ADMIN_ID),
+            )
+        except Exception:
+            logger.warning("تنظیم منوی دستورهای اختصاصی ادمین ناموفق بود؛ /stats همچنان کار می‌کند.")
 
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -602,6 +712,7 @@ def main() -> None:
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("about", about_command))
     application.add_handler(CommandHandler("price", price_command))
+    application.add_handler(CommandHandler("stats", stats_command))
     application.add_handler(CallbackQueryHandler(button_callback))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_router))
     application.add_error_handler(error_handler)
