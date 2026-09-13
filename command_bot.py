@@ -155,7 +155,7 @@ def save_state(state: dict) -> None:
         logger.exception("ذخیره فایل وضعیت ناموفق بود")
 
 
-CATEGORY_NAMES = {"ai": "هوش مصنوعی", "security": "امنیت شبکه", "currency": "دلار و طلا", "crypto": "کریپتو و اخبار جنگ"}
+CATEGORY_NAMES = {"ai": "هوش مصنوعی", "security": "امنیت شبکه", "currency": "دلار و طلا", "crypto": "کریپتو و جنگ"}
 
 
 def touch_user(user_id: int, user=None) -> bool:
@@ -175,7 +175,7 @@ def touch_user(user_id: int, user=None) -> bool:
 
 
 def record_request(user_id: int, category: str) -> None:
-    """هر بار که کاربر یک گزارش واقعی درخواست می‌کند (AI/امنیت/دلار) صدا زده می‌شود."""
+    """هر بار که کاربر یک گزارش واقعی درخواست می‌کند (AI/امنیت/دلار/کریپتو) صدا زده می‌شود."""
     state = load_state()
     key = str(user_id)
     now = datetime.now().isoformat(timespec="seconds")
@@ -231,7 +231,7 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
         [InlineKeyboardButton("🌀 هوش مصنوعی", callback_data="digest:ai"),
          InlineKeyboardButton("🌀 امنیت شبکه", callback_data="digest:security")],
         [InlineKeyboardButton("🌀 دلار و طلا", callback_data="digest:currency"),
-         InlineKeyboardButton("🌀 کریپتو و اخبار جنگ", callback_data="digest:crypto")],
+         InlineKeyboardButton("🌀 کریپتو و جنگ", callback_data="digest:crypto")],
         [InlineKeyboardButton("🌀 کانال‌های من", callback_data="page:channels"),
          InlineKeyboardButton("🌀 راهنما", callback_data="page:help")],
         [InlineKeyboardButton("🌀 درباره ربات", callback_data="page:about")],
@@ -269,7 +269,7 @@ def welcome_text(first_name: str, is_new: bool) -> str:
     return (
         f"👋 <b>سلام {name} عزیز، خوش اومدی!</b>\n\n"
         f"من <b>{APP_NAME}</b> هستم؛ دستیاری برای رصد و تحلیل اخبار در حوزه‌های "
-        "هوش مصنوعی، امنیت شبکه و بازار دلار و طلا.\n\n"
+        "هوش مصنوعی، امنیت شبکه، بازار دلار و طلا و همچنین وضعیت بازار کریپتو و جنگ.\n\n"
         "<blockquote>پیام‌های مهم را شناسایی می‌کنم، موارد کم‌ارزش و تکراری را کنار می‌گذارم "
         "و نتیجه را به‌صورت خلاصه و رتبه‌بندی‌شده، همراه با منبع مستقیم هر خبر، "
         "در اختیارتان قرار می‌دهم.</blockquote>\n\n"
@@ -290,6 +290,10 @@ HELP_TEXT = (
     "<blockquote>بخش «دلار و طلا» به‌صورت مجزا عمل می‌کند: به‌جای رتبه‌بندی خبر، صرفاً "
     "تازه‌ترین نرخ دلار و طلای ۱۸ عیار را از کانال‌های مرجع استخراج می‌کند و همواره "
     "جدیدترین به‌روزرسانی موجود میان چند کانال را نمایش می‌دهد.</blockquote>\n\n"
+    "<blockquote>بخش «کریپتو و جنگ» هم مکانیزم جداگانه‌ای دارد: به‌جای فهرست خبر، یک "
+    "گزارش وضعیت کامل بازار رمزارز و ریسک‌های جنگ/ژئوپلیتیک مؤثر بر آن می‌سازد؛ یک پیام "
+    "روایت کلی وضعیت بازار و پیام‌های بعدی، نکات مهم منبع‌دار هستند که در صورت زیاد بودن "
+    "با دکمه «مشاهده نکته‌های بعدی» به‌صورت ده‌تایی نمایش داده می‌شوند.</blockquote>\n\n"
     "<b>دستورها</b>\n"
     "/start - شروع و نمایش منوی اصلی\n"
     "/menu - بازکردن منو\n"
@@ -301,7 +305,8 @@ HELP_TEXT = (
 
 ABOUT_TEXT = (
     "\u200fℹ️ <b>درباره</b> \u200e<b>TeleBrief</b>\u200f\n\n"
-    "\u200fیک خبرخوان تحلیلی فارسی برای حوزه‌های <b>هوش مصنوعی</b> و <b>امنیت شبکه</b>. "
+    "\u200fیک خبرخوان تحلیلی فارسی برای حوزه‌های <b>هوش مصنوعی</b>، <b>امنیت شبکه</b>، "
+    "<b>دلار و طلا</b> و <b>کریپتو و جنگ</b>. "
     "هدفش زیادکردن تعداد پیام‌ها نیست؛ هدفش پیدا کردن چیزهایی است که واقعاً ارزش خواندن دارند.\n\n"
     "<blockquote>کمتر اسکرول کن، بهتر باخبر شو.</blockquote>"
 )
@@ -381,6 +386,39 @@ async def send_story_page(
         await asyncio.sleep(0.35)
     cache["offset"] = end
     return end - start, len(stories) - end
+
+
+def more_market_keyboard(remaining: int) -> InlineKeyboardMarkup:
+    rows = []
+    if remaining > 0:
+        rows.append([
+            InlineKeyboardButton(
+                f"مشاهده نکته‌های بعدی (۱۰ تا از {remaining} نکته باقی‌مانده) 🌀",
+                callback_data="market:more",
+            )
+        ])
+    rows.append([InlineKeyboardButton("🌀 منوی اصلی", callback_data="page:menu")])
+    return InlineKeyboardMarkup(rows)
+
+
+async def send_market_page(
+    context: ContextTypes.DEFAULT_TYPE,
+    chat_id: int,
+    cache: dict,
+) -> tuple[int, int]:
+    highlights = cache["highlights"]
+    start = cache.get("offset", 0)
+    end = min(start + PAGE_SIZE, len(highlights))
+    for rank, item in enumerate(highlights[start:end], start=start + 1):
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=format_market_highlight(item, rank),
+            parse_mode=ParseMode.HTML,
+            disable_web_page_preview=True,
+        )
+        await asyncio.sleep(0.35)
+    cache["offset"] = end
+    return end - start, len(highlights) - end
 
 
 LOADING_STAGES = (
@@ -606,12 +644,12 @@ async def build_and_send_market_report(
     lock = user_locks[user_id]
     async with lock:
         loading_task = asyncio.create_task(
-            animate_loading(status_message, "کریپتو و اخبار جنگ", hours, CRYPTO_LOADING_STAGES)
+            animate_loading(status_message, "کریپتو و جنگ", hours, CRYPTO_LOADING_STAGES)
         )
         try:
             await asyncio.sleep(0.05)
             await status_message.edit_text(
-                "🔎 <b>بررسی عمیق بازار کریپتو و اخبار جنگ</b>\n\n"
+                "🔎 <b>بررسی عمیق بازار کریپتو و جنگ</b>\n\n"
                 f"در حال خواندن کانال‌های بازار و تحلیل پیام‌های {hours} ساعت اخیر...\n"
                 f"<blockquote>بازه انتخاب‌شده: {hours} ساعت</blockquote>\n"
                 "<blockquote expandable>وضعیت کلی بازار و ریسک‌های جنگ/ژئوپلیتیک مؤثر بر آن جمع‌بندی می‌شود.</blockquote>",
@@ -639,24 +677,25 @@ async def build_and_send_market_report(
                     reply_markup=back_keyboard(),
                 )
                 return
-            for rank, item in enumerate(highlights, start=1):
-                await context.bot.send_message(
-                    chat_id=chat_id,
-                    text=format_market_highlight(item, rank),
-                    parse_mode=ParseMode.HTML,
-                    disable_web_page_preview=True,
-                )
-                await asyncio.sleep(0.35)
+            cache = {"highlights": highlights, "offset": 0}
+            context.user_data["market_cache"] = cache
+            sent, remaining = await send_market_page(context, chat_id, cache)
             await context.bot.send_message(
                 chat_id=chat_id,
-                text=f"✅ <b>گزارش بازار کریپتو کامل شد</b>\n\n{fa_num(len(highlights))} نکته مهم با منبع مستقیم ارسال شد.",
+                text=(
+                    f"✅ <b>{fa_num(sent)} نکته اول از مجموع {fa_num(sent + remaining)} نکته ارسال شد</b>\n\n"
+                    + (f"هنوز {fa_num(remaining)} نکته مهم باقی مانده." if remaining else "همهٔ نکته‌های مهم بازار رمز ارز ارسال شدند.")
+                ),
                 parse_mode=ParseMode.HTML,
-                reply_markup=back_keyboard(),
+                reply_markup=more_market_keyboard(remaining),
             )
+            if not remaining:
+                context.user_data.pop("market_cache", None)
         except asyncio.CancelledError:
             loading_task.cancel()
             await asyncio.gather(loading_task, return_exceptions=True)
             logger.info("گزارش بازار کریپتو برای کاربر %s توسط خودش لغو شد", user_id)
+            context.user_data.pop("market_cache", None)
             try:
                 await status_message.edit_text(
                     "❌ <b>گزارش لغو شد</b>\n\nهر وقت خواستی از منو دوباره درخواست بده.",
@@ -1002,6 +1041,24 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         if not remaining:
             context.user_data.pop("digest_cache", None)
         return
+    if data == "market:more":
+        cache = context.user_data.get("market_cache")
+        if not cache:
+            await query.edit_message_text(
+                "⌛️ <b>این گزارش منقضی شده</b>\n\nاز منو گزارش تازه بگیر.",
+                parse_mode=ParseMode.HTML, reply_markup=back_keyboard(),
+            )
+            return
+        await query.edit_message_text("⏳ <b>در حال ارسال ۱۰ نکته بعدی...</b>", parse_mode=ParseMode.HTML)
+        sent, remaining = await send_market_page(context, query.message.chat_id, cache)
+        await query.edit_message_text(
+            (f"📚 <b>{fa_num(sent)} نکته دیگر ارسال شد</b>\n\n"
+             + (f"هنوز {fa_num(remaining)} نکته مهم باقی مانده." if remaining else "همهٔ نکته‌های مهم بازار رمز ارز ارسال شدند.")),
+            parse_mode=ParseMode.HTML, reply_markup=more_market_keyboard(remaining),
+        )
+        if not remaining:
+            context.user_data.pop("market_cache", None)
+        return
     if data == "digest:currency":
         if user_locks[user.id].locked():
             await query.answer("گزارش قبلی هنوز در حال آماده‌شدن است.", show_alert=True)
@@ -1104,7 +1161,7 @@ def build_stats_report() -> tuple[str, list[str]]:
     if category_totals:
         lines.append("")
         lines.append("🗂 <b>به تفکیک موضوع</b>")
-        icons = {"ai": "🤖", "security": "🛡", "currency": "💵"}
+        icons = {"ai": "🤖", "security": "🛡", "currency": "💵", "crypto": "🪙"}
         for cat, count in sorted(category_totals.items(), key=lambda kv: -kv[1]):
             icon = icons.get(cat, "•")
             lines.append(f"{icon} {CATEGORY_NAMES.get(cat, cat)}: {fa_num(count)}")

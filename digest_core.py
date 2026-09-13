@@ -428,7 +428,7 @@ def crypto_merge_prompt(candidates: list[dict[str, Any]]) -> str:
     }}
   ]
 }}
-حداکثر ۱۰ مورد در highlights بگذار؛ فقط مهم‌ترین و مشخص‌ترین نکات (نه هر نکته کم‌اهمیت) را انتخاب کن و برای هرکدام حتماً منبع واقعی از ورودی بگذار.
+همهٔ نکات واقعاً مهم و منبع‌دار باقی‌مانده را نگه دار؛ هیچ سقف عددی برای تعداد highlights نگذار، فقط برای هرکدام حتماً منبع واقعی از ورودی بگذار.
 
 نکات ورودی:
 {json.dumps([
@@ -792,7 +792,7 @@ def normalize_market_report(data: Any, valid_sources: set[tuple[str, int]]) -> d
         if not summary or not sources:
             continue
         highlights.append({"summary": summary, "sources": sources})
-    return {"overview": overview, "highlights": highlights[:10]}
+    return {"overview": overview, "highlights": highlights}
 
 
 
@@ -941,7 +941,7 @@ async def analyze_crypto_market(grouped_messages: dict[str, list[ChannelMessage]
         # اگر مرحله ادغام شکست بخورد، گزارش نباید خالی شود؛ همان نکات معتبر
         # (بدون روایت یکپارچه) به‌عنوان هایلایت نشان داده می‌شوند.
         logger.error("ادغام گزارش بازار کریپتو ناموفق بود؛ نکات خام استفاده می‌شوند: %s", exc)
-        fallback_highlights = [c for c in candidates if c.get("sources")][:10]
+        fallback_highlights = [c for c in candidates if c.get("sources")]
         return {"overview": "", "highlights": fallback_highlights}
 
 
@@ -1048,7 +1048,7 @@ def format_market_overview(hours: int, total_messages: int, active_channels: int
         else rtl("در این بازه گزارش خاصی از وضعیت کلی بازار به‌دست نیامد.")
     )
     return "\n".join([
-        rtl("💱 <b>گزارش بازار کریپتو و اخبار جنگ | TeleBrief</b>"), "",
+        rtl("💱 <b>گزارش بازار کریپتو و جنگ | TeleBrief</b>"), "",
         "<blockquote>"
         + rtl(f"بازه بررسی: {html.escape(since.strftime('%Y/%m/%d %H:%M'))} تا {html.escape(now.strftime('%Y/%m/%d %H:%M'))}")
         + "\n" + rtl(f"پیام‌های بررسی‌شده: {total_messages} پیام از {active_channels} کانال فعال")
