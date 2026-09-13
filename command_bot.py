@@ -57,7 +57,7 @@ def join_required_text(first_name: str = "") -> str:
         f"\u200fسلام {name} عزیز 🌹\n\n"
         "\u200fخوشحالیم که به TeleBrief سر زدید. برای استفاده از امکانات ربات، "
         "لازم است ابتدا عضو کانال زیر شوید:\n\n"
-        f"\u200f<blockquote>🌀 <a href=\"{REQUIRED_CHANNEL_LINK}\">{REQUIRED_CHANNEL_DISPLAY}</a></blockquote>\n\n"
+        f"<blockquote>\u200f🌀 <a href=\"{REQUIRED_CHANNEL_LINK}\">{REQUIRED_CHANNEL_DISPLAY}</a></blockquote>\n\n"
         "\u200fپس از عضویت، کافی‌ست روی دکمه زیر بزنید تا بلافاصله دسترسی کامل برایتان فعال شود."
     )
 
