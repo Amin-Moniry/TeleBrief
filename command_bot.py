@@ -40,7 +40,6 @@ PAGE_SIZE = 10
 # ---------------------------------------------------------------------------
 REQUIRED_CHANNEL_USERNAME = "atishbekakestar"
 REQUIRED_CHANNEL_LINK = "https://t.me/atishbekakestar"
-REQUIRED_CHANNEL_LABEL = "𝐉𝐎𝐈𝐍"
 REQUIRED_CHANNEL_DISPLAY = "آتیش بی خاکستر"
 JOIN_CHECK_CALLBACK = "join:check"
 
@@ -48,7 +47,7 @@ JOIN_CHECK_CALLBACK = "join:check"
 def join_required_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("☑️ عضویت در کانال", url=REQUIRED_CHANNEL_LINK)],
-        [InlineKeyboardButton("🔓 عضو شدم، بررسی کن", callback_data=JOIN_CHECK_CALLBACK)],
+        [InlineKeyboardButton("✅ عضو شدم، بررسی کن", callback_data=JOIN_CHECK_CALLBACK)],
     ])
 
 
@@ -58,8 +57,8 @@ def join_required_text(first_name: str = "") -> str:
         f"\u200fسلام {name} عزیز 🌹\n\n"
         "\u200fخوشحالیم که به TeleBrief سر زدید. برای استفاده از امکانات ربات، "
         "لازم است ابتدا عضو کانال زیر شوید:\n\n"
-        f"\u200f<blockquote>💠 <a href=\"{REQUIRED_CHANNEL_LINK}\">{REQUIRED_CHANNEL_LABEL}</a> ➣ <b>{REQUIRED_CHANNEL_DISPLAY}</b></blockquote>\n\n"
-        "\u200fپس از عضویت، کافی‌ست روی دکمه زیر بزنید تا بلافاصله دسترسی کامل برایتان فعال شود. 🔓"
+        f"\u200f<blockquote>🌀 <a href=\"{REQUIRED_CHANNEL_LINK}\">{REQUIRED_CHANNEL_DISPLAY}</a></blockquote>\n\n"
+        "\u200fپس از عضویت، کافی‌ست روی دکمه زیر بزنید تا بلافاصله دسترسی کامل برایتان فعال شود."
     )
 
 
@@ -128,7 +127,7 @@ def save_state(state: dict) -> None:
         logger.exception("ذخیره فایل وضعیت ناموفق بود")
 
 
-CATEGORY_NAMES = {"ai": "هوش مصنوعی", "security": "امنیت سایبری", "currency": "دلار و طلا"}
+CATEGORY_NAMES = {"ai": "هوش مصنوعی", "security": "امنیت شبکه", "currency": "دلار و طلا"}
 
 
 def touch_user(user_id: int, user=None) -> bool:
@@ -188,17 +187,17 @@ def safe_channel(value: str) -> str | None:
 
 
 def channels_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([[InlineKeyboardButton("➕ افزودن کانال", callback_data="channel:add")], [InlineKeyboardButton("🏠 منوی اصلی", callback_data="page:menu")]])
+    return InlineKeyboardMarkup([[InlineKeyboardButton("🌀 افزودن کانال", callback_data="channel:add")], [InlineKeyboardButton("🌀 منوی اصلی", callback_data="page:menu")]])
 
 
 def main_menu_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🤖 هوش مصنوعی", callback_data="digest:ai"),
-         InlineKeyboardButton("🛡 امنیت سایبری", callback_data="digest:security")],
-        [InlineKeyboardButton("💵 دلار و طلا", callback_data="digest:currency")],
-        [InlineKeyboardButton("📚 کانال‌های من", callback_data="page:channels"),
-         InlineKeyboardButton("📖 راهنما", callback_data="page:help")],
-        [InlineKeyboardButton("ℹ️ درباره ربات", callback_data="page:about")],
+        [InlineKeyboardButton("🌀 هوش مصنوعی", callback_data="digest:ai"),
+         InlineKeyboardButton("🌀 امنیت شبکه", callback_data="digest:security")],
+        [InlineKeyboardButton("🌀 دلار و طلا", callback_data="digest:currency")],
+        [InlineKeyboardButton("🌀 کانال‌های من", callback_data="page:channels"),
+         InlineKeyboardButton("🌀 راهنما", callback_data="page:help")],
+        [InlineKeyboardButton("🌀 درباره ربات", callback_data="page:about")],
     ])
 
 
@@ -217,14 +216,14 @@ def hours_keyboard(category: str) -> InlineKeyboardMarkup:
             InlineKeyboardButton("۷ روز", callback_data=f"hours:{category}:168"),
             InlineKeyboardButton("۱۵ روز / ۳۶۰ ساعت", callback_data=f"hours:{category}:360"),
         ],
-        [InlineKeyboardButton("✍️ بازه دلخواه", callback_data=f"custom:{category}")],
-        [InlineKeyboardButton("🏠 بازگشت", callback_data="page:menu")],
+        [InlineKeyboardButton("🌀 بازه دلخواه", callback_data=f"custom:{category}")],
+        [InlineKeyboardButton("🌀 بازگشت", callback_data="page:menu")],
     ])
 
 
 def back_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🏠 بازگشت به منوی اصلی", callback_data="page:menu")]
+        [InlineKeyboardButton("🌀 بازگشت به منوی اصلی", callback_data="page:menu")]
     ])
 
 
@@ -233,13 +232,11 @@ def welcome_text(first_name: str, is_new: bool) -> str:
     return (
         f"👋 <b>سلام {name} عزیز، خوش اومدی!</b>\n\n"
         f"من <b>{APP_NAME}</b> هستم؛ دستیاری برای رصد و تحلیل اخبار در حوزه‌های "
-        "هوش مصنوعی، امنیت سایبری و بازار دلار و طلا.\n\n"
-        "پیام‌های مهم را شناسایی می‌کنم، موارد کم‌ارزش و تکراری را کنار می‌گذارم "
+        "هوش مصنوعی، امنیت شبکه و بازار دلار و طلا.\n\n"
+        "<blockquote>پیام‌های مهم را شناسایی می‌کنم، موارد کم‌ارزش و تکراری را کنار می‌گذارم "
         "و نتیجه را به‌صورت خلاصه و رتبه‌بندی‌شده، همراه با منبع مستقیم هر خبر، "
-        "در اختیارتان قرار می‌دهم.\n\n"
-        "<blockquote>بازه زمانی بررسی کاملاً در اختیار شماست\n"
-        "خروجی شامل خلاصه‌ی هر خبر، نکات کلیدی آن و لینک مستقیم به منبع است</blockquote>\n\n"
-        "در خدمت شما هستیم ، از طریق دکمه‌های زیر می‌توانید از امکانات ربات استفاده کنید :")
+        "در اختیارتان قرار می‌دهم.</blockquote>\n\n"
+        "در خدمت شما هستم ، از طریق دکمه‌های زیر می‌توانید از امکانات ربات استفاده کنید :")
 
 
 HELP_TEXT = (
@@ -259,7 +256,7 @@ HELP_TEXT = (
 
 ABOUT_TEXT = (
     "\u200fℹ️ <b>درباره</b> \u200e<b>TeleBrief</b>\u200f\n\n"
-    "\u200fیک خبرخوان تحلیلی فارسی برای حوزه‌های <b>هوش مصنوعی</b> و <b>امنیت سایبری</b>. "
+    "\u200fیک خبرخوان تحلیلی فارسی برای حوزه‌های <b>هوش مصنوعی</b> و <b>امنیت شبکه</b>. "
     "هدفش زیادکردن تعداد پیام‌ها نیست؛ هدفش پیدا کردن چیزهایی است که واقعاً ارزش خواندن دارند.\n\n"
     "<blockquote>کمتر اسکرول کن، بهتر باخبر شو.</blockquote>"
 )
@@ -313,11 +310,11 @@ def more_keyboard(remaining: int) -> InlineKeyboardMarkup:
     if remaining > 0:
         rows.append([
             InlineKeyboardButton(
-                f"مشاهده خبرهای بعدی (۱۰ تا از {remaining} خبر باقی‌مانده) ⬇️",
+                f"مشاهده خبرهای بعدی (۱۰ تا از {remaining} خبر باقی‌مانده) 🌀",
                 callback_data="digest:more",
             )
         ])
-    rows.append([InlineKeyboardButton("🏠 منوی اصلی", callback_data="page:menu")])
+    rows.append([InlineKeyboardButton("🌀 منوی اصلی", callback_data="page:menu")])
     return InlineKeyboardMarkup(rows)
 
 
@@ -392,7 +389,7 @@ async def build_and_send_report(
     hours: int,
     status_message,
 ) -> None:
-    category_name = "هوش مصنوعی" if category == "ai" else "امنیت سایبری"
+    category_name = "هوش مصنوعی" if category == "ai" else "امنیت شبکه"
     record_request(user_id, category)
     lock = user_locks[user_id]
     async with lock:

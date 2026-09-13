@@ -294,7 +294,7 @@ def call_model_with_fallback(prompt: str, temperature: float = 0.15) -> Any:
 
 
 def shortlist_prompt(messages: list[ChannelMessage], category: str, lang: str = "fa") -> str:
-    field = "هوش مصنوعی" if category == "ai" else "امنیت سایبری"
+    field = "هوش مصنوعی" if category == "ai" else "امنیت شبکه"
     output_language = "فارسی"
     sources = "\n\n".join(message.prompt_block() for message in messages)
     category_policy = (
@@ -304,9 +304,9 @@ def shortlist_prompt(messages: list[ChannelMessage], category: str, lang: str = 
         "نامرتبط با هوش مصنوعی یا متن فاقد اطلاعات قابل‌تحلیل را حذف کن."
         if category == "ai"
         else
-        "در بخش امنیت سایبری، رخداد، آسیب‌پذیری، تهدید، ابزار دفاعی، توصیه امنیتی "
+        "در بخش امنیت شبکه، رخداد، آسیب‌پذیری، تهدید، ابزار دفاعی، توصیه امنیتی "
         "مستند، و همچنین رویداد/مسابقه/دورهٔ آموزشی امنیتی با جزئیات واقعی را نگه "
-        "دار؛ حتی اگر کوتاه یا کم‌اثر است. فقط موارد نامرتبط با امنیت سایبری یا "
+        "دار؛ حتی اگر کوتاه یا کم‌اثر است. فقط موارد نامرتبط با امنیت شبکه یا "
         "متن فاقد اطلاعات قابل‌تحلیل را حذف کن."
     )
     scope_guard = (
@@ -351,7 +351,7 @@ score عدد صحیح 0 تا 100 است. اگر چیزی مهم نیست، [] ب
 
 
 def merge_prompt(candidates: list[dict[str, Any]], category: str, lang: str = "fa") -> str:
-    field = "هوش مصنوعی" if category == "ai" else "امنیت سایبری"
+    field = "هوش مصنوعی" if category == "ai" else "امنیت شبکه"
     output_language = "فارسی"
     return f"""نامزدهای خبری حوزه {field} را بررسی کن و همه فیلدها را به زبان {output_language} برگردان.
 آن‌ها را دوباره با سخت‌گیری بررسی کن: موارد مشابه را ادغام کن و ادعاهای ضعیف، بی‌سند یا صرفاً «فالو کن / لایک کن» بدون هیچ اطلاعات مشخص را حذف کن. اگر نامزدی در مرحلهٔ قبل به‌خاطر اطلاعات واقعی و مشخص (مثلاً مسابقه، رویداد یا ابزار با جزئیات مشخص) نگه داشته شده، صرفاً به‌خاطر لحن تبلیغاتی دوباره حذفش نکن.
