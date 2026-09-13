@@ -185,9 +185,18 @@ def safe_channel(value: str) -> str | None:
     return value
 
 
+MAX_EXTRA_CHANNELS = 30
 
-def channels_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([[InlineKeyboardButton("🌀 افزودن کانال", callback_data="channel:add")], [InlineKeyboardButton("🌀 منوی اصلی", callback_data="page:menu")]])
+
+def channels_keyboard(has_channels: bool = False) -> InlineKeyboardMarkup:
+    rows = [[InlineKeyboardButton("🌀 افزودن کانال", callback_data="channel:add")]]
+    if has_channels:
+        rows.append([
+            InlineKeyboardButton("🌀 حذف یک کانال", callback_data="channel:remove"),
+            InlineKeyboardButton("🌀 پاک‌کردن همه", callback_data="channel:clear"),
+        ])
+    rows.append([InlineKeyboardButton("🌀 منوی اصلی", callback_data="page:menu")])
+    return InlineKeyboardMarkup(rows)
 
 
 def main_menu_keyboard() -> InlineKeyboardMarkup:
@@ -239,12 +248,20 @@ def welcome_text(first_name: str, is_new: bool) -> str:
         "در خدمت شما هستم ، از طریق دکمه‌های زیر می‌توانید از امکانات ربات استفاده کنید :")
 
 
+MENU_PROMPT_TEXT = (
+    "🗞 <b>چه گزارشی می‌خوای؟</b>\n\n"
+    "یکی از حوزه‌های خبری زیر را انتخاب کن تا مهم‌ترین و تازه‌ترین یافته‌های همان حوزه برایت آماده شود.\n\n"
+    "<blockquote>دسته موردنظرت را از دکمه‌های زیر انتخاب کن</blockquote>"
+)
+
 HELP_TEXT = (
     "📖 <b>راهنمای TeleBrief</b>\n\n"
-    "یک دسته و بازه زمانی را انتخاب کن. ربات همه پیام‌های بازه را می‌خواند، موارد کم‌ارزش را حذف می‌کند، "
-    "خبرهای مشابه را ادغام می‌کند و مهم‌ترین نتیجه‌ها را به ترتیب اهمیت می‌فرستد.\n\n"
-    "بخش «💵 دلار و طلا» جداست: به‌جای رتبه‌بندی خبر، فقط تازه‌ترین قیمت دلار و طلای ۱۸ عیار را از کانال‌های ارز پیدا می‌کند "
-    "و همیشه جدیدترین بروزرسانی بین چند کانال را نشان می‌دهد.\n\n"
+    "حوزه و بازه زمانی موردنظر خود را انتخاب کنید. ربات تمام پیام‌های آن بازه را بررسی می‌کند، "
+    "موارد کم‌اهمیت را حذف می‌کند، خبرهای مشابه را با یکدیگر ادغام می‌کند و مهم‌ترین نتایج را "
+    "به ترتیب اهمیت برایتان ارسال می‌کند.\n\n"
+    "<blockquote>بخش «دلار و طلا» به‌صورت مجزا عمل می‌کند: به‌جای رتبه‌بندی خبر، صرفاً "
+    "تازه‌ترین نرخ دلار و طلای ۱۸ عیار را از کانال‌های مرجع استخراج می‌کند و همواره "
+    "جدیدترین به‌روزرسانی موجود میان چند کانال را نمایش می‌دهد.</blockquote>\n\n"
     "<b>دستورها</b>\n"
     "/start - شروع و نمایش منوی اصلی\n"
     "/menu - بازکردن منو\n"
@@ -280,7 +297,7 @@ async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     if not await require_join(update, context):
         return
     await update.effective_message.reply_text(
-        "🗞 <b>چه گزارشی می‌خوای؟</b>\n\nدسته موردنظرت را انتخاب کن:",
+        MENU_PROMPT_TEXT,
         parse_mode=ParseMode.HTML,
         reply_markup=main_menu_keyboard(),
     )
@@ -560,6 +577,36 @@ async def custom_hours_message(update: Update, context: ContextTypes.DEFAULT_TYP
     )
 
 
+def channels_page_text(channels: list[str]) -> str:
+    heading = "📚 <b>کانال‌های شخصی من</b>"
+    intro = (
+        "<blockquote>این کانال‌ها علاوه بر منابع پیش‌فرض ربات بررسی می‌شوند و در گزارش‌های "
+        "«هوش مصنوعی» و «امنیت شبکه» لحاظ خواهند شد.</blockquote>"
+    )
+    count_line = f"ظرفیت استفاده‌شده: <b>{fa_num(len(channels))}</b> از <b>{fa_num(MAX_EXTRA_CHANNELS)}</b> کانال"
+    if channels:
+        listed = "\n".join(f"• @{html.escape(c)}" for c in channels)
+    else:
+        listed = "هنوز کانالی اضافه نشده است."
+    return f"{heading}\n\n{intro}\n\n{count_line}\n\n{listed}"
+
+
+def channel_removal_prompt_text(channels: list[str]) -> str:
+    listed = "\n".join(f"• @{html.escape(c)}" for c in channels)
+    return (
+        "🌀 <b>حذف کانال</b>\n\n"
+        "نام یکی از کانال‌های زیر را بفرست (با یا بدون @) تا از لیست حذف شود:\n\n"
+        f"{listed}"
+    )
+
+
+def channel_clear_confirm_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🌀 بله، پاک کن", callback_data="channel:clear:yes"),
+         InlineKeyboardButton("🌀 انصراف", callback_data="channel:clear:no")],
+    ])
+
+
 async def add_channel_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not context.user_data.get("awaiting_channel"):
         return
@@ -570,13 +617,55 @@ async def add_channel_message(update: Update, context: ContextTypes.DEFAULT_TYPE
         )
         return
     prefs = user_prefs(update.effective_user.id)
-    channels = list(dict.fromkeys(prefs.get("extra_channels", []) + [channel]))[:30]
+    existing = prefs.get("extra_channels", [])
+    if channel in existing:
+        context.user_data.pop("awaiting_channel", None)
+        await update.effective_message.reply_text(
+            f"این کانال (@{html.escape(channel)}) از قبل در لیست شماست.",
+            parse_mode=ParseMode.HTML,
+            reply_markup=channels_keyboard(has_channels=True),
+        )
+        return
+    if len(existing) >= MAX_EXTRA_CHANNELS:
+        context.user_data.pop("awaiting_channel", None)
+        await update.effective_message.reply_text(
+            f"ظرفیت شما تکمیل شده است (حداکثر {fa_num(MAX_EXTRA_CHANNELS)} کانال). "
+            "برای افزودن کانال جدید، ابتدا یکی را حذف کنید.",
+            parse_mode=ParseMode.HTML,
+            reply_markup=channels_keyboard(has_channels=True),
+        )
+        return
+    channels = existing + [channel]
     update_user_prefs(update.effective_user.id, extra_channels=channels)
     context.user_data.pop("awaiting_channel", None)
     await update.effective_message.reply_text(
-        f"✅ کانال @{html.escape(channel)} اضافه شد.",
+        f"✅ کانال @{html.escape(channel)} اضافه شد.\n\n"
+        f"ظرفیت استفاده‌شده: {fa_num(len(channels))} از {fa_num(MAX_EXTRA_CHANNELS)} کانال",
         parse_mode=ParseMode.HTML,
-        reply_markup=channels_keyboard(),
+        reply_markup=channels_keyboard(has_channels=True),
+    )
+
+
+async def remove_channel_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not context.user_data.get("awaiting_channel_removal"):
+        return
+    channel = safe_channel(update.effective_message.text or "")
+    prefs = user_prefs(update.effective_user.id)
+    existing = prefs.get("extra_channels", [])
+    if not channel or channel not in existing:
+        await update.effective_message.reply_text(
+            "این کانال در لیست شما پیدا نشد. نام دقیق‌تری بفرست یا از منو انصراف بده.",
+            reply_markup=back_keyboard(),
+        )
+        return
+    channels = [c for c in existing if c != channel]
+    update_user_prefs(update.effective_user.id, extra_channels=channels)
+    context.user_data.pop("awaiting_channel_removal", None)
+    await update.effective_message.reply_text(
+        f"🗑 کانال @{html.escape(channel)} حذف شد.\n\n"
+        f"ظرفیت استفاده‌شده: {fa_num(len(channels))} از {fa_num(MAX_EXTRA_CHANNELS)} کانال",
+        parse_mode=ParseMode.HTML,
+        reply_markup=channels_keyboard(has_channels=bool(channels)),
     )
 
 
@@ -586,6 +675,8 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         return
     if context.user_data.get("awaiting_channel"):
         await add_channel_message(update, context)
+    elif context.user_data.get("awaiting_channel_removal"):
+        await remove_channel_message(update, context)
     elif context.user_data.get("awaiting_hours"):
         await custom_hours_message(update, context)
 
@@ -625,8 +716,11 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     await query.answer()
 
     if data == "page:menu":
+        context.user_data.pop("awaiting_channel", None)
+        context.user_data.pop("awaiting_channel_removal", None)
+        context.user_data.pop("awaiting_hours", None)
         await query.edit_message_text(
-            "🗞 <b>چه گزارشی می‌خوای؟</b>\n\nدسته موردنظرت را انتخاب کن:",
+            MENU_PROMPT_TEXT,
             parse_mode=ParseMode.HTML,
             reply_markup=main_menu_keyboard(),
         )
@@ -634,13 +728,65 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if data == "page:channels":
         prefs = user_prefs(user.id)
         channels = prefs.get("extra_channels", [])
-        heading = "📚 <b>کانال‌های من</b>"
-        listed = "\n".join(f"• @{html.escape(c)}" for c in channels) if channels else "هنوز کانالی اضافه نشده."
-        await query.edit_message_text(heading + "\n\n" + listed, parse_mode=ParseMode.HTML, reply_markup=channels_keyboard())
+        await query.edit_message_text(
+            channels_page_text(channels),
+            parse_mode=ParseMode.HTML,
+            reply_markup=channels_keyboard(has_channels=bool(channels)),
+        )
         return
     if data == "channel:add":
+        prefs = user_prefs(user.id)
+        remaining = MAX_EXTRA_CHANNELS - len(prefs.get("extra_channels", []))
         context.user_data["awaiting_channel"] = True
-        await query.edit_message_text("✍️ <b>کانال عمومی را بفرست</b>\n\nمثال: @thehackernews", parse_mode=ParseMode.HTML, reply_markup=back_keyboard())
+        await query.edit_message_text(
+            "🌀 <b>افزودن کانال</b>\n\n"
+            "آی‌دی عمومی کانال یا لینک آن را بفرست؛ مثال: <b>@thehackernews</b>\n\n"
+            f"<blockquote>ظرفیت باقی‌مانده: {fa_num(remaining)} کانال</blockquote>",
+            parse_mode=ParseMode.HTML,
+            reply_markup=back_keyboard(),
+        )
+        return
+    if data == "channel:remove":
+        prefs = user_prefs(user.id)
+        channels = prefs.get("extra_channels", [])
+        if not channels:
+            await query.answer("لیست شما خالی است.", show_alert=True)
+            return
+        context.user_data["awaiting_channel_removal"] = True
+        await query.edit_message_text(
+            channel_removal_prompt_text(channels),
+            parse_mode=ParseMode.HTML,
+            reply_markup=back_keyboard(),
+        )
+        return
+    if data == "channel:clear":
+        prefs = user_prefs(user.id)
+        if not prefs.get("extra_channels", []):
+            await query.answer("لیست شما خالی است.", show_alert=True)
+            return
+        await query.edit_message_text(
+            "🌀 <b>پاک‌کردن همه کانال‌ها</b>\n\n"
+            "این کار همه کانال‌های شخصی شما را حذف می‌کند و قابل بازگشت نیست. مطمئن هستید؟",
+            parse_mode=ParseMode.HTML,
+            reply_markup=channel_clear_confirm_keyboard(),
+        )
+        return
+    if data == "channel:clear:yes":
+        update_user_prefs(user.id, extra_channels=[])
+        await query.edit_message_text(
+            "🗑 همه کانال‌های شخصی شما حذف شدند.",
+            parse_mode=ParseMode.HTML,
+            reply_markup=channels_keyboard(has_channels=False),
+        )
+        return
+    if data == "channel:clear:no":
+        prefs = user_prefs(user.id)
+        channels = prefs.get("extra_channels", [])
+        await query.edit_message_text(
+            channels_page_text(channels),
+            parse_mode=ParseMode.HTML,
+            reply_markup=channels_keyboard(has_channels=bool(channels)),
+        )
         return
     if data == "page:help":
         await query.edit_message_text(
