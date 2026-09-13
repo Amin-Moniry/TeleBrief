@@ -41,16 +41,23 @@ def cancel_keyboard() -> InlineKeyboardMarkup:
     ])
 
 
-async def run_cancellable_report(coro, user_id: int) -> None:
-    """کوروتین ساخت گزارش را در یک Task جدا اجرا می‌کند تا با دکمه «لغو گزارش»
-    از بیرون قابل کنسل‌شدن باشد؛ کاربر دیگر مجبور نیست تا آخر صبر کند."""
+def start_report_task(coro, user_id: int) -> None:
+    """تسک گزارش را در پس‌زمینه اجرا می‌کند و بلافاصله برمی‌گردد.
+
+    نکته مهم: اگر اینجا await می‌کردیم، خودِ handler که این تابع را صدا زده
+    تا پایان گزارش تمام نمی‌شد. چون python-telegram-bot به‌صورت پیش‌فرض
+    آپدیت‌ها را یکی‌یکی پردازش می‌کند (concurrent_updates=False)، یعنی کلیک
+    روی دکمه «لغو گزارش» اصلاً به هیچ handler‌ای نمی‌رسید تا گزارش قبلی کامل
+    تمام شود — همان دلیلی که دکمه لغو کار نمی‌کرد. با اجرای تسک در پس‌زمینه
+    و برگشت فوری، آپدیت بعدی (از جمله کلیک لغو) بلافاصله پردازش می‌شود."""
     task = asyncio.create_task(coro)
     user_report_tasks[user_id] = task
-    try:
-        await task
-    finally:
-        if user_report_tasks.get(user_id) is task:
+
+    def _cleanup(done_task: asyncio.Task) -> None:
+        if user_report_tasks.get(user_id) is done_task:
             user_report_tasks.pop(user_id, None)
+
+    task.add_done_callback(_cleanup)
 
 # ---------------------------------------------------------------------------
 # عضویت اجباری در کانال
@@ -590,7 +597,7 @@ async def price_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     status = await update.effective_message.reply_text(
         "⏳ <b>در حال دریافت آخرین نرخ...</b>" + queue_notice, parse_mode=ParseMode.HTML
     )
-    await run_cancellable_report(
+    start_report_task(
         build_and_send_currency_report(context, update.effective_chat.id, user_id, status),
         user_id,
     )
@@ -627,7 +634,7 @@ async def custom_hours_message(update: Update, context: ContextTypes.DEFAULT_TYP
     status = await update.effective_message.reply_text(
         "⏳ <b>در حال شروع بررسی...</b>" + queue_notice, parse_mode=ParseMode.HTML
     )
-    await run_cancellable_report(
+    start_report_task(
         build_and_send_report(
             context, update.effective_chat.id, update.effective_user.id,
             category, hours, status,
@@ -895,7 +902,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await query.edit_message_text(
             "⏳ <b>در حال دریافت آخرین نرخ...</b>" + queue_notice, parse_mode=ParseMode.HTML
         )
-        await run_cancellable_report(
+        start_report_task(
             build_and_send_currency_report(context, query.message.chat_id, user.id, query.message),
             user.id,
         )
@@ -927,7 +934,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             await query.answer("گزارش قبلی هنوز در حال آماده‌شدن است.", show_alert=True)
             return
         context.user_data.pop("awaiting_hours", None)
-        await run_cancellable_report(
+        start_report_task(
             build_and_send_report(
                 context, query.message.chat_id, user.id,
                 category, int(raw_hours), query.message,
