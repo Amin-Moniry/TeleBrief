@@ -2,6 +2,7 @@ import asyncio
 import html
 import logging
 import os
+import secrets
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
@@ -31,18 +32,26 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 STATE_FILE = DATA_DIR / "bot_state.json"
 logger = logging.getLogger(__name__)
 user_locks: dict[int, asyncio.Lock] = defaultdict(asyncio.Lock)
-user_report_tasks: dict[int, asyncio.Task] = {}
+user_report_tasks: dict[int, tuple[str, asyncio.Task]] = {}
 PAGE_SIZE = 10
-CANCEL_CALLBACK = "cancel:report"
 
 
-def cancel_keyboard() -> InlineKeyboardMarkup:
+def report_token() -> str:
+    return secrets.token_urlsafe(6)
+
+
+def report_active(user_id: int) -> bool:
+    current = user_report_tasks.get(user_id)
+    return bool(current and not current[1].done())
+
+
+def cancel_keyboard(user_id: int, token: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("❌ لغو گزارش", callback_data=CANCEL_CALLBACK)],
+        [InlineKeyboardButton("❌ لغو گزارش", callback_data=f"cancel:{user_id}:{token}")],
     ])
 
 
-def start_report_task(coro, user_id: int) -> None:
+def start_report_task(coro, user_id: int, token: str) -> bool:
     """تسک گزارش را در پس‌زمینه اجرا می‌کند و بلافاصله برمی‌گردد.
 
     نکته مهم: اگر اینجا await می‌کردیم، خودِ handler که این تابع را صدا زده
@@ -51,14 +60,30 @@ def start_report_task(coro, user_id: int) -> None:
     روی دکمه «لغو گزارش» اصلاً به هیچ handler‌ای نمی‌رسید تا گزارش قبلی کامل
     تمام شود — همان دلیلی که دکمه لغو کار نمی‌کرد. با اجرای تسک در پس‌زمینه
     و برگشت فوری، آپدیت بعدی (از جمله کلیک لغو) بلافاصله پردازش می‌شود."""
+    # رزرو قبل از اولین await انجام می‌شود؛ در نتیجه دابل‌کلیک دو گزارش نمی‌سازد.
+    if report_active(user_id):
+        coro.close()
+        return False
     task = asyncio.create_task(coro)
-    user_report_tasks[user_id] = task
+    user_report_tasks[user_id] = (token, task)
 
     def _cleanup(done_task: asyncio.Task) -> None:
-        if user_report_tasks.get(user_id) is done_task:
+        current = user_report_tasks.get(user_id)
+        if current and current[1] is done_task:
             user_report_tasks.pop(user_id, None)
+        if not done_task.cancelled():
+            try:
+                error = done_task.exception()
+            except asyncio.CancelledError:
+                return
+            if error is not None:
+                logger.error(
+                    "تسک پس‌زمینه گزارش برای کاربر %s شکست خورد", user_id,
+                    exc_info=(type(error), error, error.__traceback__),
+                )
 
     task.add_done_callback(_cleanup)
+    return True
 
 # ---------------------------------------------------------------------------
 # عضویت اجباری در کانال
@@ -101,13 +126,13 @@ async def is_channel_member(context: ContextTypes.DEFAULT_TYPE, user_id: int) ->
         return member.status not in ("left", "kicked")
     except BadRequest:
         logger.warning(
-            "بررسی عضویت کاربر %s در کانال ناموفق بود (شاید ربات ادمین کانال نیست).",
+            "بررسی عضویت کاربر %s ناموفق بود؛ دسترسی تا رفع تنظیم کانال بسته می‌ماند.",
             user_id,
         )
-        return True
+        return False
     except Exception:
         logger.exception("خطای غیرمنتظره هنگام بررسی عضویت کاربر %s", user_id)
-        return True
+        return False
 
 
 async def send_join_wall(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -143,16 +168,22 @@ def load_state() -> dict:
 
 
 def save_state(state: dict) -> None:
-    """ذخیره اتمیک برای جلوگیری از خراب‌شدن فایل وضعیت."""
+    """ذخیره اتمیک؛ نام موقت یکتا مانع برخورد چند پردازش می‌شود."""
     import json
-    temp_file = STATE_FILE.with_suffix(".tmp")
+    temp_file = STATE_FILE.with_name(
+        f".{STATE_FILE.name}.{os.getpid()}.{secrets.token_hex(4)}.tmp"
+    )
     try:
         temp_file.write_text(
             json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8"
         )
-        temp_file.replace(STATE_FILE)
+        os.replace(temp_file, STATE_FILE)
     except OSError:
         logger.exception("ذخیره فایل وضعیت ناموفق بود")
+        try:
+            temp_file.unlink(missing_ok=True)
+        except OSError:
+            pass
 
 
 CATEGORY_NAMES = {"ai": "هوش مصنوعی", "security": "امنیت شبکه", "currency": "دلار و طلا", "crypto": "کریپتو و جنگ"}
@@ -297,6 +328,10 @@ HELP_TEXT = (
     "<b>دستورها</b>\n"
     "/start - شروع و نمایش منوی اصلی\n"
     "/menu - بازکردن منو\n"
+    "/ai - گزارش هوش مصنوعی\n"
+    "/security - گزارش امنیت شبکه\n"
+    "/crypto - گزارش کریپتو و جنگ\n"
+    "/addchannel - افزودن کانال شخصی\n"
     "/price - نرخ لحظه‌ای دلار و طلا\n"
     "/help - راهنمای استفاده\n"
     "/about - معرفی ربات\n\n"
@@ -314,9 +349,9 @@ ABOUT_TEXT = (
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
-    is_new = touch_user(user.id, user)
     if not await require_join(update, context):
         return
+    is_new = touch_user(user.id, user)
     await update.effective_message.reply_text(
         welcome_text(user.first_name, is_new),
         parse_mode=ParseMode.HTML,
@@ -326,9 +361,9 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    touch_user(update.effective_user.id, update.effective_user)
     if not await require_join(update, context):
         return
+    touch_user(update.effective_user.id, update.effective_user)
     await update.effective_message.reply_text(
         MENU_PROMPT_TEXT,
         parse_mode=ParseMode.HTML,
@@ -337,31 +372,31 @@ async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    touch_user(update.effective_user.id, update.effective_user)
     if not await require_join(update, context):
         return
+    touch_user(update.effective_user.id, update.effective_user)
     await update.effective_message.reply_text(
         HELP_TEXT, parse_mode=ParseMode.HTML, reply_markup=back_keyboard()
     )
 
 
 async def about_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    touch_user(update.effective_user.id, update.effective_user)
     if not await require_join(update, context):
         return
+    touch_user(update.effective_user.id, update.effective_user)
     await update.effective_message.reply_text(
         ABOUT_TEXT, parse_mode=ParseMode.HTML, reply_markup=back_keyboard()
     )
 
 
 
-def more_keyboard(remaining: int) -> InlineKeyboardMarkup:
+def more_keyboard(remaining: int, user_id: int, token: str) -> InlineKeyboardMarkup:
     rows = []
     if remaining > 0:
         rows.append([
             InlineKeyboardButton(
                 f"مشاهده خبرهای بعدی (۱۰ تا از {remaining} خبر باقی‌مانده) 🌀",
-                callback_data="digest:more",
+                callback_data=f"digest:more:{user_id}:{token}",
             )
         ])
     rows.append([InlineKeyboardButton("🌀 منوی اصلی", callback_data="page:menu")])
@@ -388,13 +423,13 @@ async def send_story_page(
     return end - start, len(stories) - end
 
 
-def more_market_keyboard(remaining: int) -> InlineKeyboardMarkup:
+def more_market_keyboard(remaining: int, user_id: int, token: str) -> InlineKeyboardMarkup:
     rows = []
     if remaining > 0:
         rows.append([
             InlineKeyboardButton(
                 f"مشاهده نکته‌های بعدی (۱۰ تا از {remaining} نکته باقی‌مانده) 🌀",
-                callback_data="market:more",
+                callback_data=f"market:more:{user_id}:{token}",
             )
         ])
     rows.append([InlineKeyboardButton("🌀 منوی اصلی", callback_data="page:menu")])
@@ -430,7 +465,8 @@ LOADING_STAGES = (
 
 
 async def animate_loading(
-    status_message, category_name: str, hours: int, stages: tuple[str, ...] = LOADING_STAGES
+    status_message, category_name: str, hours: int, user_id: int, token: str,
+    stages: tuple[str, ...] = LOADING_STAGES,
 ) -> None:
     """لودینگ داشبوردی: قاب ثابت، مرحله متغیر، بدون اسپینر."""
     tick = 0
@@ -448,7 +484,7 @@ async def animate_loading(
                     f"پیشرفت: {completed}</blockquote>\n\n"
                     "🧠 در حال بررسی دقیق پیام‌ها هستم؛ موارد ارزشمند جدا می‌شوند.",
                     parse_mode=ParseMode.HTML,
-                    reply_markup=cancel_keyboard(),
+                    reply_markup=cancel_keyboard(user_id, token),
                 )
             except BadRequest as exc:
                 # وقتی متن جدید دقیقاً با متن فعلی یکسان است (بین دو تغییر مرحله)،
@@ -472,13 +508,13 @@ async def build_and_send_report(
     category: str,
     hours: int,
     status_message,
+    token: str,
 ) -> None:
     category_name = "هوش مصنوعی" if category == "ai" else "امنیت شبکه"
-    record_request(user_id, category)
     lock = user_locks[user_id]
     async with lock:
         loading_task = asyncio.create_task(
-            animate_loading(status_message, category_name, hours)
+            animate_loading(status_message, category_name, hours, user_id, token)
         )
         try:
             await asyncio.sleep(0.05)
@@ -491,11 +527,12 @@ async def build_and_send_report(
             )
             extra_channels = user_prefs(user_id).get("extra_channels", [])
             result = await prepare_digest(hours=hours, category=category, extra_channels=extra_channels)
+            record_request(user_id, category)
             loading_task.cancel()
             await asyncio.gather(loading_task, return_exceptions=True)
             stories = result["stories"]
             cache = {"stories": stories, "category": category, "offset": 0}
-            context.user_data["digest_cache"] = cache
+            context.user_data.setdefault("digest_caches", {})[token] = cache
             await status_message.edit_text(
                 format_date_header(hours, result["total_messages"], result["active_channels"])
                 + f"\n\n<b>وضعیت کانال‌ها:</b> هر {result['configured_channels']} کانال پیمایش شد؛ {result['active_channels']} کانال در این بازه پیام داشت.",
@@ -503,7 +540,7 @@ async def build_and_send_report(
                 disable_web_page_preview=True,
             )
             if not stories:
-                context.user_data.pop("digest_cache", None)
+                context.user_data.get("digest_caches", {}).pop(token, None)
                 await context.bot.send_message(
                     chat_id=chat_id,
                     text="🔍 <b>خبر مهمی پیدا نشد</b>\n\nتمام پیام‌های این بازه بررسی شدند.",
@@ -519,15 +556,15 @@ async def build_and_send_report(
                     + (f"هنوز {remaining} خبر مهم باقی مانده." if remaining else "همه خبرهای مهم ارسال شدند.")
                 ),
                 parse_mode=ParseMode.HTML,
-                reply_markup=more_keyboard(remaining),
+                reply_markup=more_keyboard(remaining, user_id, token),
             )
             if not remaining:
-                context.user_data.pop("digest_cache", None)
+                context.user_data.get("digest_caches", {}).pop(token, None)
         except asyncio.CancelledError:
             loading_task.cancel()
             await asyncio.gather(loading_task, return_exceptions=True)
             logger.info("ساخت گزارش برای کاربر %s توسط خودش لغو شد", user_id)
-            context.user_data.pop("digest_cache", None)
+            context.user_data.get("digest_caches", {}).pop(token, None)
             try:
                 await status_message.edit_text(
                     "❌ <b>گزارش لغو شد</b>\n\nهر وقت خواستی از منو دوباره درخواست بده.",
@@ -573,15 +610,16 @@ async def build_and_send_currency_report(
     chat_id: int,
     user_id: int,
     status_message,
+    token: str,
 ) -> None:
-    record_request(user_id, "currency")
     lock = user_locks[user_id]
     async with lock:
         loading_task = asyncio.create_task(
-            animate_loading(status_message, "دلار و طلا", CURRENCY_HOURS_WINDOW, CURRENCY_LOADING_STAGES)
+            animate_loading(status_message, "دلار و طلا", CURRENCY_HOURS_WINDOW, user_id, token, CURRENCY_LOADING_STAGES)
         )
         try:
             result = await prepare_currency_digest()
+            record_request(user_id, "currency")
             loading_task.cancel()
             await asyncio.gather(loading_task, return_exceptions=True)
             text = format_currency_digest(
@@ -636,15 +674,15 @@ async def build_and_send_market_report(
     user_id: int,
     hours: int,
     status_message,
+    token: str,
 ) -> None:
     """مکانیزمش با build_and_send_report فرق دارد: به‌جای فهرست خبر
     رتبه‌بندی‌شده و صفحه‌بندی «بیشتر»، یک گزارش کامل در چند پیام می‌فرستد —
     پیام اول روایت کلی وضعیت بازار، پیام‌های بعدی نکات مهمِ منبع‌دار."""
-    record_request(user_id, "crypto")
     lock = user_locks[user_id]
     async with lock:
         loading_task = asyncio.create_task(
-            animate_loading(status_message, "کریپتو و جنگ", hours, CRYPTO_LOADING_STAGES)
+            animate_loading(status_message, "کریپتو و جنگ", hours, user_id, token, CRYPTO_LOADING_STAGES)
         )
         try:
             await asyncio.sleep(0.05)
@@ -656,6 +694,7 @@ async def build_and_send_market_report(
                 parse_mode=ParseMode.HTML,
             )
             result = await prepare_market_digest(hours=hours)
+            record_request(user_id, "crypto")
             loading_task.cancel()
             await asyncio.gather(loading_task, return_exceptions=True)
             highlights = result["highlights"]
@@ -678,7 +717,7 @@ async def build_and_send_market_report(
                 )
                 return
             cache = {"highlights": highlights, "offset": 0}
-            context.user_data["market_cache"] = cache
+            context.user_data.setdefault("market_caches", {})[token] = cache
             sent, remaining = await send_market_page(context, chat_id, cache)
             await context.bot.send_message(
                 chat_id=chat_id,
@@ -687,15 +726,15 @@ async def build_and_send_market_report(
                     + (f"هنوز {fa_num(remaining)} نکته مهم باقی مانده." if remaining else "همهٔ نکته‌های مهم بازار رمز ارز ارسال شدند.")
                 ),
                 parse_mode=ParseMode.HTML,
-                reply_markup=more_market_keyboard(remaining),
+                reply_markup=more_market_keyboard(remaining, user_id, token),
             )
             if not remaining:
-                context.user_data.pop("market_cache", None)
+                context.user_data.get("market_caches", {}).pop(token, None)
         except asyncio.CancelledError:
             loading_task.cancel()
             await asyncio.gather(loading_task, return_exceptions=True)
             logger.info("گزارش بازار کریپتو برای کاربر %s توسط خودش لغو شد", user_id)
-            context.user_data.pop("market_cache", None)
+            context.user_data.get("market_caches", {}).pop(token, None)
             try:
                 await status_message.edit_text(
                     "❌ <b>گزارش لغو شد</b>\n\nهر وقت خواستی از منو دوباره درخواست بده.",
@@ -724,12 +763,27 @@ async def build_and_send_market_report(
             )
 
 
-async def price_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user_id = update.effective_user.id
-    touch_user(user_id, update.effective_user)
+async def category_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not await require_join(update, context):
         return
-    if user_locks[user_id].locked():
+    user = update.effective_user
+    touch_user(user.id, user)
+    category = (update.effective_message.text or "").split("@", 1)[0].lstrip("/").lower()
+    if category not in {"ai", "security", "crypto"}:
+        return
+    await update.effective_message.reply_text(
+        "⏱ <b>چند ساعت اخیر بررسی شود؟</b>\n\n"
+        "بازه آماده را انتخاب کن یا عدد دلخواهت را بنویس.",
+        parse_mode=ParseMode.HTML, reply_markup=hours_keyboard(category),
+    )
+
+
+async def price_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user_id = update.effective_user.id
+    if not await require_join(update, context):
+        return
+    touch_user(user_id, update.effective_user)
+    if report_active(user_id):
         await update.effective_message.reply_text("گزارش قبلی هنوز آماده نشده.")
         return
     queue_notice = (
@@ -739,9 +793,10 @@ async def price_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     status = await update.effective_message.reply_text(
         "⏳ <b>در حال دریافت آخرین نرخ...</b>" + queue_notice, parse_mode=ParseMode.HTML
     )
+    token = report_token()
     start_report_task(
-        build_and_send_currency_report(context, update.effective_chat.id, user_id, status),
-        user_id,
+        build_and_send_currency_report(context, update.effective_chat.id, user_id, status, token),
+        user_id, token,
     )
 
 
@@ -765,7 +820,7 @@ async def custom_hours_message(update: Update, context: ContextTypes.DEFAULT_TYP
             parse_mode=ParseMode.HTML,
         )
         return
-    if user_locks[update.effective_user.id].locked():
+    if report_active(update.effective_user.id):
         await update.effective_message.reply_text("گزارش قبلی هنوز آماده نشده.")
         return
     context.user_data.pop("awaiting_hours", None)
@@ -776,20 +831,21 @@ async def custom_hours_message(update: Update, context: ContextTypes.DEFAULT_TYP
     status = await update.effective_message.reply_text(
         "⏳ <b>در حال شروع بررسی...</b>" + queue_notice, parse_mode=ParseMode.HTML
     )
+    token = report_token()
     if category == "crypto":
         start_report_task(
             build_and_send_market_report(
-                context, update.effective_chat.id, update.effective_user.id, hours, status,
+                context, update.effective_chat.id, update.effective_user.id, hours, status, token,
             ),
-            update.effective_user.id,
+            update.effective_user.id, token,
         )
     else:
         start_report_task(
             build_and_send_report(
                 context, update.effective_chat.id, update.effective_user.id,
-                category, hours, status,
+                category, hours, status, token,
             ),
-            update.effective_user.id,
+            update.effective_user.id, token,
         )
 
 
@@ -823,6 +879,22 @@ def channel_clear_confirm_keyboard() -> InlineKeyboardMarkup:
     ])
 
 
+async def add_channel_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await require_join(update, context):
+        return
+    user = update.effective_user
+    touch_user(user.id, user)
+    prefs = user_prefs(user.id)
+    remaining = MAX_EXTRA_CHANNELS - len(prefs.get("extra_channels", []))
+    context.user_data["awaiting_channel"] = True
+    await update.effective_message.reply_text(
+        "🌀 <b>افزودن کانال</b>\n\n"
+        "آی‌دی عمومی کانال یا لینک آن را بفرست؛ مثال: <b>@thehackernews</b>\n\n"
+        f"<blockquote>ظرفیت باقی‌مانده: {fa_num(remaining)} کانال</blockquote>",
+        parse_mode=ParseMode.HTML, reply_markup=back_keyboard(),
+    )
+
+
 async def add_channel_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not context.user_data.get("awaiting_channel"):
         return
@@ -832,9 +904,19 @@ async def add_channel_message(update: Update, context: ContextTypes.DEFAULT_TYPE
             "فرمت درست نیست. @channel یا لینک عمومی t.me/channel را بفرست."
         )
         return
+    try:
+        chat = await context.bot.get_chat(f"@{channel}")
+        if getattr(chat, "type", None) != "channel" or not getattr(chat, "username", None):
+            raise ValueError("not a public channel")
+        channel = chat.username
+    except Exception:
+        await update.effective_message.reply_text(
+            "این کانال عمومی پیدا نشد یا ربات به آن دسترسی ندارد؛ نام را دوباره بررسی کن."
+        )
+        return
     prefs = user_prefs(update.effective_user.id)
     existing = prefs.get("extra_channels", [])
-    if channel in existing:
+    if channel.casefold() in {c.casefold() for c in existing}:
         context.user_data.pop("awaiting_channel", None)
         await update.effective_message.reply_text(
             f"این کانال (@{html.escape(channel)}) از قبل در لیست شماست.",
@@ -868,13 +950,15 @@ async def remove_channel_message(update: Update, context: ContextTypes.DEFAULT_T
     channel = safe_channel(update.effective_message.text or "")
     prefs = user_prefs(update.effective_user.id)
     existing = prefs.get("extra_channels", [])
-    if not channel or channel not in existing:
+    matches = [c for c in existing if channel and c.casefold() == channel.casefold()]
+    if not matches:
         await update.effective_message.reply_text(
             "این کانال در لیست شما پیدا نشد. نام دقیق‌تری بفرست یا از منو انصراف بده.",
             reply_markup=back_keyboard(),
         )
         return
-    channels = [c for c in existing if c != channel]
+    channel = matches[0]
+    channels = [c for c in existing if c.casefold() != channel.casefold()]
     update_user_prefs(update.effective_user.id, extra_channels=channels)
     context.user_data.pop("awaiting_channel_removal", None)
     await update.effective_message.reply_text(
@@ -901,10 +985,10 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     query = update.callback_query
     data = query.data or ""
     user = query.from_user
-    is_new = touch_user(user.id, user)
 
     if data == JOIN_CHECK_CALLBACK:
         if await is_channel_member(context, user.id):
+            is_new = touch_user(user.id, user)
             await query.answer("✅ عضویت تایید شد!")
             await query.edit_message_text(
                 welcome_text(user.first_name, is_new),
@@ -916,13 +1000,21 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             await query.answer("هنوز عضو کانال نشدی 🙁", show_alert=True)
         return
 
-    if data == CANCEL_CALLBACK:
-        task = user_report_tasks.get(user.id)
-        if task and not task.done():
-            task.cancel()
+    if data.startswith("cancel:"):
+        try:
+            _, owner_raw, token = data.split(":", 2)
+            owner_id = int(owner_raw)
+        except (ValueError, TypeError):
+            await query.answer("دکمه نامعتبر است.", show_alert=True)
+            return
+        current = user_report_tasks.get(owner_id)
+        if user.id != owner_id:
+            await query.answer("این گزارش متعلق به شما نیست.", show_alert=True)
+        elif current and current[0] == token and not current[1].done():
+            current[1].cancel()
             await query.answer("در حال لغو گزارش...")
         else:
-            await query.answer("گزارشی برای لغو در جریان نیست.", show_alert=True)
+            await query.answer("این گزارش دیگر در جریان نیست.", show_alert=True)
         return
 
     if not await is_channel_member(context, user.id):
@@ -935,7 +1027,8 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         )
         return
 
-    if data.startswith("hours:") and user_locks[user.id].locked():
+    touch_user(user.id, user)
+    if data.startswith("hours:") and report_active(user.id):
         await query.answer("گزارش قبلی هنوز در حال آماده‌شدن است.", show_alert=True)
         return
     await query.answer()
@@ -1023,8 +1116,17 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             ABOUT_TEXT, parse_mode=ParseMode.HTML, reply_markup=back_keyboard()
         )
         return
-    if data == "digest:more":
-        cache = context.user_data.get("digest_cache")
+    if data.startswith("digest:more:"):
+        try:
+            _, _, owner_raw, token = data.split(":", 3)
+            owner_id = int(owner_raw)
+        except (ValueError, TypeError):
+            await query.answer("دکمه نامعتبر است.", show_alert=True)
+            return
+        if user.id != owner_id:
+            await query.answer("این گزارش متعلق به شما نیست.", show_alert=True)
+            return
+        cache = context.user_data.get("digest_caches", {}).get(token)
         if not cache:
             await query.edit_message_text(
                 "⌛️ <b>این گزارش منقضی شده</b>\n\nاز منو گزارش تازه بگیر.",
@@ -1036,13 +1138,22 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await query.edit_message_text(
             (f"📚 <b>{sent} خبر دیگر ارسال شد</b>\n\n"
              + (f"هنوز {remaining} خبر مهم باقی مانده." if remaining else "همه خبرهای مهم این بازه ارسال شدند.")),
-            parse_mode=ParseMode.HTML, reply_markup=more_keyboard(remaining),
+            parse_mode=ParseMode.HTML, reply_markup=more_keyboard(remaining, user.id, token),
         )
         if not remaining:
-            context.user_data.pop("digest_cache", None)
+            context.user_data.get("digest_caches", {}).pop(token, None)
         return
-    if data == "market:more":
-        cache = context.user_data.get("market_cache")
+    if data.startswith("market:more:"):
+        try:
+            _, _, owner_raw, token = data.split(":", 3)
+            owner_id = int(owner_raw)
+        except (ValueError, TypeError):
+            await query.answer("دکمه نامعتبر است.", show_alert=True)
+            return
+        if user.id != owner_id:
+            await query.answer("این گزارش متعلق به شما نیست.", show_alert=True)
+            return
+        cache = context.user_data.get("market_caches", {}).get(token)
         if not cache:
             await query.edit_message_text(
                 "⌛️ <b>این گزارش منقضی شده</b>\n\nاز منو گزارش تازه بگیر.",
@@ -1054,13 +1165,13 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await query.edit_message_text(
             (f"📚 <b>{fa_num(sent)} نکته دیگر ارسال شد</b>\n\n"
              + (f"هنوز {fa_num(remaining)} نکته مهم باقی مانده." if remaining else "همهٔ نکته‌های مهم بازار رمز ارز ارسال شدند.")),
-            parse_mode=ParseMode.HTML, reply_markup=more_market_keyboard(remaining),
+            parse_mode=ParseMode.HTML, reply_markup=more_market_keyboard(remaining, user.id, token),
         )
         if not remaining:
-            context.user_data.pop("market_cache", None)
+            context.user_data.get("market_caches", {}).pop(token, None)
         return
     if data == "digest:currency":
-        if user_locks[user.id].locked():
+        if report_active(user.id):
             await query.answer("گزارش قبلی هنوز در حال آماده‌شدن است.", show_alert=True)
             return
         queue_notice = (
@@ -1070,9 +1181,10 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await query.edit_message_text(
             "⏳ <b>در حال دریافت آخرین نرخ...</b>" + queue_notice, parse_mode=ParseMode.HTML
         )
+        token = report_token()
         start_report_task(
-            build_and_send_currency_report(context, query.message.chat_id, user.id, query.message),
-            user.id,
+            build_and_send_currency_report(context, query.message.chat_id, user.id, query.message, token),
+            user.id, token,
         )
         return
     if data in {"digest:ai", "digest:security", "digest:crypto"}:
@@ -1098,24 +1210,25 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return
     if data.startswith("hours:"):
         _, category, raw_hours = data.split(":", 2)
-        if user_locks[user.id].locked():
+        if report_active(user.id):
             await query.answer("گزارش قبلی هنوز در حال آماده‌شدن است.", show_alert=True)
             return
         context.user_data.pop("awaiting_hours", None)
+        token = report_token()
         if category == "crypto":
             start_report_task(
                 build_and_send_market_report(
-                    context, query.message.chat_id, user.id, int(raw_hours), query.message,
+                    context, query.message.chat_id, user.id, int(raw_hours), query.message, token,
                 ),
-                user.id,
+                user.id, token,
             )
         else:
             start_report_task(
                 build_and_send_report(
                     context, query.message.chat_id, user.id,
-                    category, int(raw_hours), query.message,
+                    category, int(raw_hours), query.message, token,
                 ),
-                user.id,
+                user.id, token,
             )
         return
 
@@ -1219,6 +1332,10 @@ async def post_init(application: Application) -> None:
     default_commands = [
         BotCommand("start", "شروع و نمایش منوی اصلی"),
         BotCommand("menu", "انتخاب دسته خبری"),
+        BotCommand("ai", "گزارش هوش مصنوعی"),
+        BotCommand("security", "گزارش امنیت شبکه"),
+        BotCommand("crypto", "گزارش کریپتو و جنگ"),
+        BotCommand("addchannel", "افزودن کانال شخصی"),
         BotCommand("price", "نرخ لحظه‌ای دلار و طلا"),
         BotCommand("help", "راهنمای استفاده"),
         BotCommand("about", "معرفی TeleBrief"),
@@ -1249,6 +1366,8 @@ def main() -> None:
     application = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("menu", menu_command))
+    application.add_handler(CommandHandler(["ai", "security", "crypto"], category_command))
+    application.add_handler(CommandHandler("addchannel", add_channel_command))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("about", about_command))
     application.add_handler(CommandHandler("price", price_command))

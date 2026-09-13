@@ -8,6 +8,7 @@ import random
 import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal, InvalidOperation
 from typing import Any, Iterable
 
 import requests
@@ -41,15 +42,22 @@ BOT_TOKEN = env_str("BOT_TOKEN")
 XKIRO_API_KEY = env_str("XKIRO_API_KEY")
 API_BASE_URL = env_str("API_BASE_URL").rstrip("/")
 XKIRO_MODEL = env_str("DEFAULT_MODEL", "deepseek/deepseek-v4-pro")
-FALLBACK_MODEL = env_str("FALLBACK_MODEL", "mistralai/mistral-medium-3.5")
+# هر دو نام قدیمی و مستندشده پشتیبانی می‌شوند؛ چند مدل را با ویرگول جدا کنید.
+_FALLBACK_RAW = env_str(
+    "FALLBACK_MODELS", env_str("FALLBACK_MODEL", "mistralai/mistral-medium-3.5")
+)
+FALLBACK_MODELS = [m.strip() for m in _FALLBACK_RAW.split(",") if m.strip()]
+FALLBACK_MODEL = FALLBACK_MODELS[0] if FALLBACK_MODELS else ""  # سازگاری عقب‌رو
 GEMINI_API_KEY = env_str("GEMINI_API_KEY")
 GEMINI_MODEL = env_str("GEMINI_MODEL", "gemini-2.5-flash")
 GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai"
 HOURS_WINDOW = env_int("HOURS_WINDOW", 24)
 MAX_HOURS = 720
-MAX_MESSAGES_PER_CHANNEL = env_int("MAX_MESSAGES_PER_CHANNEL", 2000)
-MAX_STORIES = env_int("MAX_STORIES", 0)  # 0 یعنی بدون سقف مصنوعی
-BATCH_CHAR_LIMIT = env_int("BATCH_CHAR_LIMIT", 12_000)
+MAX_MESSAGES_PER_CHANNEL = max(1, min(env_int("MAX_MESSAGES_PER_CHANNEL", 2000), 10_000))
+MAX_STORIES = max(0, env_int("MAX_STORIES", 0))  # 0 یعنی بدون سقف مصنوعی
+BATCH_CHAR_LIMIT = max(2_000, min(env_int("BATCH_CHAR_LIMIT", 12_000), 100_000))
+MERGE_CHAR_LIMIT = max(BATCH_CHAR_LIMIT, min(env_int("MERGE_CHAR_LIMIT", 60_000), 200_000))
+FETCH_START_TIMEOUT = max(10, min(env_int("FETCH_START_TIMEOUT", 45), 180))
 MODEL_RETRIES = max(1, min(env_int("MODEL_RETRIES", 3), 3))
 PRIMARY_MODEL_RETRIES = max(1, min(env_int("PRIMARY_MODEL_RETRIES", 1), 3))
 MODEL_TIMEOUT = max(20, env_int("MODEL_TIMEOUT", 90))
@@ -113,14 +121,16 @@ class ChannelMessage:
         )
 
 
-def validate_config() -> None:
+def validate_config(require_bot_token: bool = False) -> None:
     missing = [
         key for key, value in {
             "API_ID": API_ID, "API_HASH": API_HASH, "SESSION_STRING": SESSION_STRING,
-            "BOT_TOKEN": BOT_TOKEN, "XKIRO_API_KEY": XKIRO_API_KEY,
-            "API_BASE_URL": API_BASE_URL,
         }.items() if not value
     ]
+    if not ((XKIRO_API_KEY and API_BASE_URL) or GEMINI_API_KEY):
+        missing.append("XKIRO_API_KEY/API_BASE_URL یا GEMINI_API_KEY")
+    if require_bot_token and not BOT_TOKEN:
+        missing.append("BOT_TOKEN")
     if missing:
         raise RuntimeError(f"تنظیمات ضروری ناقص است: {', '.join(missing)}")
 
@@ -129,14 +139,21 @@ async def fetch_channel_messages(
     hours: int = HOURS_WINDOW, channels: list[str] | None = None
 ) -> dict[str, list[ChannelMessage]]:
     """تمام پیام‌های متنی بازه را می‌خواند؛ هر کانال جدا، قدیمی به جدید."""
-    channels = channels or CHANNELS
+    if not 1 <= hours <= MAX_HOURS:
+        raise ValueError(f"بازه باید بین ۱ تا {MAX_HOURS} ساعت باشد.")
+    channels = CHANNELS if channels is None else channels
+    # حذف تکراری‌ها بدون حساسیت به حروف؛ [] عمداً یعنی هیچ کانالی.
+    channels = list({str(c).strip().lstrip("@").casefold(): str(c).strip().lstrip("@")
+                     for c in channels if str(c).strip().lstrip("@")} .values())
+    if not channels:
+        return {}
     since = datetime.now(timezone.utc) - timedelta(hours=hours)
     output: dict[str, list[ChannelMessage]] = {}
 
     async with _FETCH_SEMAPHORE:
         client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
-        await client.start()
         try:
+            await asyncio.wait_for(client.start(), timeout=FETCH_START_TIMEOUT)
             for channel in channels:
                 items: list[ChannelMessage] = []
                 try:
@@ -161,7 +178,10 @@ async def fetch_channel_messages(
                 except Exception:
                     logger.exception("خواندن کانال %s ناموفق بود", channel)
         finally:
-            await client.disconnect()
+            try:
+                await client.disconnect()
+            except Exception:
+                logger.warning("قطع اتصال Telethon ناموفق بود", exc_info=True)
     return output
 
 
@@ -285,13 +305,17 @@ def call_model_with_fallback(prompt: str, temperature: float = 0.15) -> Any:
     جایگزین روی xKiro (با retry کامل)، و در آخر—اگر تنظیم شده باشد—مستقیم
     Gemini روی Google AI Studio که کاملاً مستقل از xKiro است. فقط وقتی هر سه
     شکست بخورند، خطا بالا می‌رود."""
-    chain = [
-        (XKIRO_MODEL, PRIMARY_MODEL_RETRIES, API_BASE_URL, XKIRO_API_KEY),
-    ]
-    if FALLBACK_MODEL and FALLBACK_MODEL != XKIRO_MODEL:
-        chain.append((FALLBACK_MODEL, MODEL_RETRIES, API_BASE_URL, XKIRO_API_KEY))
+    chain: list[tuple[str, int, str, str]] = []
+    if XKIRO_API_KEY and API_BASE_URL:
+        chain.append((XKIRO_MODEL, PRIMARY_MODEL_RETRIES, API_BASE_URL, XKIRO_API_KEY))
+        chain.extend(
+            (model, MODEL_RETRIES, API_BASE_URL, XKIRO_API_KEY)
+            for model in FALLBACK_MODELS if model != XKIRO_MODEL
+        )
     if GEMINI_API_KEY:
         chain.append((GEMINI_MODEL, MODEL_RETRIES, GEMINI_BASE_URL, GEMINI_API_KEY))
+    if not chain:
+        raise RuntimeError("هیچ ارائه‌دهنده مدل معتبری تنظیم نشده است.")
 
     last_exc: Exception | None = None
     for index, (model, retries, base_url, api_key) in enumerate(chain):
@@ -465,29 +489,68 @@ def currency_extract_prompt(messages: list[ChannelMessage]) -> str:
 {sources}"""
 
 
-def parse_toman_amount(raw: str) -> int | None:
-    """مقدار عددی تومانی را از متن آزاد استخراج می‌کند (بدون فرمت‌کردن)."""
-    text = str(raw or "").strip().translate(PERSIAN_DIGITS_MAP_EARLY)
-    match = re.search(r"[\d,\.]*\d", text)
-    if not match:
+def _normalized_number_tokens(raw: str) -> list[str]:
+    text = str(raw or "").translate(PERSIAN_DIGITS_MAP)
+    text = text.replace("٬", ",").replace("٫", ".")
+    return re.findall(r"(?<!\d)\d[\d,._\s]*\d|(?<!\d)\d", text)
+
+
+def _decimal_from_token(token: str) -> Decimal | None:
+    token = token.strip().replace("_", "").replace(" ", "")
+    if not token:
         return None
-    number_str = match.group(0).replace(",", "")
-    if "." in number_str:
-        integer_part, _, frac_part = number_str.partition(".")
-        number_str = integer_part + frac_part if len(frac_part) == 3 else integer_part
+    # ویرگول در نرخ‌های فارسی جداکننده هزارگان است. نقطه با سه رقم انتهایی هم همین‌طور.
+    token = token.replace(",", "")
+    if token.count(".") > 1:
+        token = token.replace(".", "")
+    elif "." in token and len(token.rsplit(".", 1)[1]) == 3:
+        token = token.replace(".", "")
     try:
-        value = int(number_str)
-    except ValueError:
+        return Decimal(token)
+    except InvalidOperation:
         return None
-    if THOUSANDS_UNIT_RE_EARLY.search(text):
-        value *= 1000
-    return value
 
 
-PERSIAN_DIGITS_MAP_EARLY = str.maketrans(
+def parse_toman_amount(raw: str) -> int | None:
+    """عدد تومانی با ارقام فارسی، جداکننده‌های یونیکد، اعشار و واحدهای هزار/میلیون."""
+    text = str(raw or "").strip().translate(PERSIAN_DIGITS_MAP)
+    tokens = _normalized_number_tokens(text)
+    if not tokens:
+        return None
+    value = _decimal_from_token(tokens[0])
+    if value is None:
+        return None
+    if re.search(r"میلیارد", text):
+        value *= 1_000_000_000
+    elif re.search(r"میلیون", text):
+        value *= 1_000_000
+    elif THOUSANDS_UNIT_RE.search(text):
+        value *= 1_000
+    if value <= 0:
+        return None
+    return int(value)
+
+
+def _price_is_supported(raw_price: str, source_text: str, kind: str) -> bool:
+    """مدل فقط وقتی پذیرفته می‌شود که خود عدد در پیام منبع وجود داشته و معقول باشد."""
+    amount = parse_toman_amount(raw_price)
+    if amount is None:
+        return False
+    minimum, maximum = ((1_000, 100_000_000) if kind in {"usd", "usdt"}
+                        else (100_000, 10_000_000_000))
+    if not minimum <= amount <= maximum:
+        return False
+    wanted = {_decimal_from_token(t) for t in _normalized_number_tokens(raw_price)}
+    found = {_decimal_from_token(t) for t in _normalized_number_tokens(source_text)}
+    wanted.discard(None)
+    found.discard(None)
+    return bool(wanted & found)
+
+
+PERSIAN_DIGITS_MAP = str.maketrans(
     "۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789"
 )
-THOUSANDS_UNIT_RE_EARLY = re.compile(r"هزار|ه[\s\.ـ]*تومان")
+THOUSANDS_UNIT_RE = re.compile(r"هزار|ه[\s\.ـ]*تومان|ه[\s\.ـ]*ت")
 
 
 def extract_currency_readings(
@@ -533,7 +596,8 @@ def extract_currency_readings(
         except (KeyError, TypeError, ValueError):
             continue
         source = by_source.get((channel, message_id))
-        if not source:
+        if not source or not _price_is_supported(price, source.text, kind):
+            logger.warning("قیمت مدل به متن منبع متصل نبود: %s/%s", channel, message_id)
             continue
         current = best.get(kind)
         if not current or source.date > current["message"].date:
@@ -575,33 +639,9 @@ def persian_time_ago(moment: datetime) -> str:
     return f"{hours // 24} روز پیش"
 
 
-PERSIAN_DIGITS_MAP = str.maketrans(
-    "۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789"
-)
-THOUSANDS_UNIT_RE = re.compile(r"هزار|ه[\s\.ـ]*تومان")
-
-
 def normalize_toman_price(raw: str) -> str:
-    """قیمت‌های تومانی کانال‌ها را یکدست می‌کند: ارقام فارسی را لاتین می‌کند و
-    اگر واحد «هزار تومان» بود (مثلاً «23,950 هـ.تومان»)، عدد را در ۱۰۰۰ ضرب
-    می‌کند تا مبلغ کامل با جداکننده هزارگان نمایش داده شود («23,950,000 تومان»)
-    نه شکل مبهم و کوتاه‌شده."""
-    text = str(raw or "").strip().translate(PERSIAN_DIGITS_MAP)
-    match = re.search(r"[\d,\.]*\d", text)
-    if not match:
-        return str(raw or "").strip()
-    number_str = match.group(0).replace(",", "")
-    if "." in number_str:
-        integer_part, _, frac_part = number_str.partition(".")
-        # نقطه‌ای که دقیقاً ۳ رقم بعدش می‌آید جداکننده هزارگان است، نه اعشار.
-        number_str = integer_part + frac_part if len(frac_part) == 3 else integer_part
-    try:
-        value = int(number_str)
-    except ValueError:
-        return str(raw or "").strip()
-    if THOUSANDS_UNIT_RE.search(text):
-        value *= 1000
-    return f"{value:,} تومان"
+    amount = parse_toman_amount(raw)
+    return f"{amount:,} تومان" if amount is not None else str(raw or "").strip()
 
 
 def format_currency_digest(
@@ -687,6 +727,8 @@ async def prepare_currency_digest() -> dict[str, Any]:
 
 def clean_model_text(value: Any) -> str:
     """مارک‌داون مدل را حذف می‌کند؛ قالب نهایی فقط با HTML امن ساخته می‌شود."""
+    if isinstance(value, (dict, list, tuple, set)):
+        return ""
     text = str(value or "").strip()
     text = re.sub(r"(\*\*|__|```|`)", "", text)
     return re.sub(r"[ \t]+", " ", text).strip()
@@ -737,8 +779,12 @@ def normalize_stories(data: Any, valid_sources: set[tuple[str, int]]) -> list[di
                 message_id = int(source["message_id"])
             except (KeyError, TypeError, ValueError):
                 continue
-            if (channel.lower(), message_id) in valid_sources:
+            source_key = (channel.lower(), message_id)
+            if source_key in valid_sources and source_key not in {
+                (x["channel"].lower(), x["message_id"]) for x in sources
+            }:
                 sources.append({"channel": channel, "message_id": message_id})
+        sources = sources[:8]
         title = clean_model_text(item.get("title", ""))
         summary = clean_model_text(item.get("summary", ""))
         if not title or not summary or not sources:
@@ -787,8 +833,12 @@ def normalize_market_report(data: Any, valid_sources: set[tuple[str, int]]) -> d
                 message_id = int(source["message_id"])
             except (KeyError, TypeError, ValueError):
                 continue
-            if (channel.lower(), message_id) in valid_sources:
+            source_key = (channel.lower(), message_id)
+            if source_key in valid_sources and source_key not in {
+                (x["channel"].lower(), x["message_id"]) for x in sources
+            }:
                 sources.append({"channel": channel, "message_id": message_id})
+        sources = sources[:8]
         if not summary or not sources:
             continue
         highlights.append({"summary": summary, "sources": sources})
@@ -819,6 +869,35 @@ def fallback_stories(
         })
         if limit > 0 and len(result) >= limit:
             break
+    return result
+
+
+def _candidate_chunks(items: list[dict[str, Any]], limit: int = MERGE_CHAR_LIMIT) -> list[list[dict[str, Any]]]:
+    chunks: list[list[dict[str, Any]]] = []
+    current: list[dict[str, Any]] = []
+    size = 0
+    for item in items:
+        item_size = len(json.dumps(item, ensure_ascii=False)) + 100
+        if current and size + item_size > limit:
+            chunks.append(current)
+            current, size = [], 0
+        current.append(item)
+        size += item_size
+    if current:
+        chunks.append(current)
+    return chunks
+
+
+def _dedupe_stories(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    seen: set[tuple[Any, ...]] = set()
+    result = []
+    for item in sorted(items, key=lambda x: x.get("score", 0), reverse=True):
+        sources = tuple(sorted((s["channel"].casefold(), int(s["message_id"]))
+                               for s in item.get("sources", [])))
+        key = sources or (clean_model_text(item.get("title", "")).casefold(),)
+        if key and key not in seen:
+            seen.add(key)
+            result.append(item)
     return result
 
 
@@ -861,19 +940,19 @@ async def analyze_messages(
             "سرویس مدل در دسترس نیست؛ لطفاً چند دقیقه دیگر دوباره تلاش کنید."
         )
 
-    candidates = sorted(
-        candidates, key=lambda item: item.get("score", 0), reverse=True
-    )
-    try:
-        merged = await asyncio.to_thread(call_model_with_fallback, merge_prompt(candidates, category, lang))
-        merged_stories = normalize_stories(merged, valid_sources)
-        if not merged_stories:
-            return candidates if MAX_STORIES <= 0 else candidates[:MAX_STORIES]
-        return merged_stories if MAX_STORIES <= 0 else merged_stories[:MAX_STORIES]
-    except Exception as exc:
-        # اگر مرحله ادغام سرویس مدل 500 داد، گزارش نباید صفر شود.
-        logger.error("ادغام ناموفق بود؛ نامزدهای معتبر استفاده می‌شوند: %s", exc)
-        return candidates if MAX_STORIES <= 0 else candidates[:MAX_STORIES]
+    candidates = _dedupe_stories(candidates)
+    merged_all: list[dict[str, Any]] = []
+    for chunk in _candidate_chunks(candidates):
+        try:
+            merged = await asyncio.to_thread(
+                call_model_with_fallback, merge_prompt(chunk, category, lang)
+            )
+            merged_all.extend(normalize_stories(merged, valid_sources) or chunk)
+        except Exception as exc:
+            logger.error("ادغام یک بخش ناموفق بود؛ نامزدهای معتبر حفظ شدند: %s", exc)
+            merged_all.extend(chunk)
+    result = _dedupe_stories(merged_all)
+    return result if MAX_STORIES <= 0 else result[:MAX_STORIES]
 
 
 async def analyze_crypto_market(grouped_messages: dict[str, list[ChannelMessage]]) -> dict[str, Any]:
@@ -909,7 +988,8 @@ async def analyze_crypto_market(grouped_messages: dict[str, list[ChannelMessage]
                             continue
                         if (channel.lower(), message_id) in valid_sources:
                             sources.append({"channel": channel, "message_id": message_id})
-                    cleaned.append({"summary": summary, "sources": sources})
+                    if sources:
+                        cleaned.append({"summary": summary, "sources": sources[:8]})
                 return True, cleaned
             except Exception as exc:
                 logger.error("یک دسته بازار کریپتو تحلیل نشد: %s", exc)
@@ -934,15 +1014,25 @@ async def analyze_crypto_market(grouped_messages: dict[str, list[ChannelMessage]
             "سرویس مدل در دسترس نیست؛ لطفاً چند دقیقه دیگر دوباره تلاش کنید."
         )
 
-    try:
-        merged = await asyncio.to_thread(call_model_with_fallback, crypto_merge_prompt(candidates))
-        return normalize_market_report(merged, valid_sources)
-    except Exception as exc:
-        # اگر مرحله ادغام شکست بخورد، گزارش نباید خالی شود؛ همان نکات معتبر
-        # (بدون روایت یکپارچه) به‌عنوان هایلایت نشان داده می‌شوند.
-        logger.error("ادغام گزارش بازار کریپتو ناموفق بود؛ نکات خام استفاده می‌شوند: %s", exc)
-        fallback_highlights = [c for c in candidates if c.get("sources")]
-        return {"overview": "", "highlights": fallback_highlights}
+    reports: list[dict[str, Any]] = []
+    for chunk in _candidate_chunks(candidates):
+        try:
+            merged = await asyncio.to_thread(call_model_with_fallback, crypto_merge_prompt(chunk))
+            reports.append(normalize_market_report(merged, valid_sources))
+        except Exception as exc:
+            logger.error("ادغام یک بخش بازار ناموفق بود؛ نکات معتبر حفظ شدند: %s", exc)
+            reports.append({"overview": "", "highlights": [c for c in chunk if c.get("sources")]})
+    overviews = [r["overview"] for r in reports if r.get("overview")]
+    highlights: list[dict[str, Any]] = []
+    seen_sources: set[tuple[Any, ...]] = set()
+    for report in reports:
+        for item in report.get("highlights", []):
+            key = tuple(sorted((x["channel"].casefold(), int(x["message_id"]))
+                               for x in item.get("sources", [])))
+            if key and key not in seen_sources:
+                seen_sources.add(key)
+                highlights.append(item)
+    return {"overview": "\n\n".join(overviews), "highlights": highlights}
 
 
 def rtl(value: str) -> str:
@@ -1090,6 +1180,8 @@ def strip_html(value: str) -> str:
 
 
 async def send_message(chat_id: int | str, text: str) -> None:
+    if not BOT_TOKEN:
+        raise RuntimeError("BOT_TOKEN برای ارسال مستقیم تنظیم نشده است.")
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {
         "chat_id": chat_id,
