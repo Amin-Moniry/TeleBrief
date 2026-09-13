@@ -17,8 +17,8 @@ from telegram.ext import (
 )
 
 from digest_core import (
-    ADMIN_ID, AI_CHANNELS, SECURITY_CHANNELS, BOT_TOKEN, HOURS_WINDOW,
-    CURRENCY_HOURS_WINDOW, format_currency_digest, format_date_header,
+    ADMIN_ID, BOT_TOKEN,
+    CURRENCY_HOURS_WINDOW, fetch_queue_busy, format_currency_digest, format_date_header,
     format_story, prepare_currency_digest, prepare_digest,
 )
 
@@ -30,7 +30,27 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 STATE_FILE = DATA_DIR / "bot_state.json"
 logger = logging.getLogger(__name__)
 user_locks: dict[int, asyncio.Lock] = defaultdict(asyncio.Lock)
+user_report_tasks: dict[int, asyncio.Task] = {}
 PAGE_SIZE = 10
+CANCEL_CALLBACK = "cancel:report"
+
+
+def cancel_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("❌ لغو گزارش", callback_data=CANCEL_CALLBACK)],
+    ])
+
+
+async def run_cancellable_report(coro, user_id: int) -> None:
+    """کوروتین ساخت گزارش را در یک Task جدا اجرا می‌کند تا با دکمه «لغو گزارش»
+    از بیرون قابل کنسل‌شدن باشد؛ کاربر دیگر مجبور نیست تا آخر صبر کند."""
+    task = asyncio.create_task(coro)
+    user_report_tasks[user_id] = task
+    try:
+        await task
+    finally:
+        if user_report_tasks.get(user_id) is task:
+            user_report_tasks.pop(user_id, None)
 
 # ---------------------------------------------------------------------------
 # عضویت اجباری در کانال
@@ -164,7 +184,6 @@ def record_request(user_id: int, category: str) -> None:
 def user_prefs(user_id: int) -> dict:
     state = load_state()
     entry = state.setdefault("users", {}).setdefault(str(user_id), {})
-    entry.setdefault("language", "fa")
     entry.setdefault("extra_channels", [])
     return entry
 
@@ -382,6 +401,7 @@ async def animate_loading(
                     f"پیشرفت: {completed}</blockquote>\n\n"
                     "🧠 در حال بررسی دقیق پیام‌ها هستم؛ موارد ارزشمند جدا می‌شوند.",
                     parse_mode=ParseMode.HTML,
+                    reply_markup=cancel_keyboard(),
                 )
             except BadRequest as exc:
                 # وقتی متن جدید دقیقاً با متن فعلی یکسان است (بین دو تغییر مرحله)،
@@ -456,6 +476,19 @@ async def build_and_send_report(
             )
             if not remaining:
                 context.user_data.pop("digest_cache", None)
+        except asyncio.CancelledError:
+            loading_task.cancel()
+            await asyncio.gather(loading_task, return_exceptions=True)
+            logger.info("ساخت گزارش برای کاربر %s توسط خودش لغو شد", user_id)
+            context.user_data.pop("digest_cache", None)
+            try:
+                await status_message.edit_text(
+                    "❌ <b>گزارش لغو شد</b>\n\nهر وقت خواستی از منو دوباره درخواست بده.",
+                    parse_mode=ParseMode.HTML,
+                    reply_markup=back_keyboard(),
+                )
+            except Exception:
+                logger.debug("ویرایش پیام لغو ناموفق بود", exc_info=True)
         except Exception as exc:
             loading_task.cancel()
             await asyncio.gather(loading_task, return_exceptions=True)
@@ -514,6 +547,18 @@ async def build_and_send_currency_report(
                 disable_web_page_preview=True,
                 reply_markup=back_keyboard(),
             )
+        except asyncio.CancelledError:
+            loading_task.cancel()
+            await asyncio.gather(loading_task, return_exceptions=True)
+            logger.info("ساخت گزارش دلار و طلا برای کاربر %s توسط خودش لغو شد", user_id)
+            try:
+                await status_message.edit_text(
+                    "❌ <b>گزارش لغو شد</b>\n\nهر وقت خواستی از منو دوباره درخواست بده.",
+                    parse_mode=ParseMode.HTML,
+                    reply_markup=back_keyboard(),
+                )
+            except Exception:
+                logger.debug("ویرایش پیام لغو ناموفق بود", exc_info=True)
         except Exception as exc:
             loading_task.cancel()
             await asyncio.gather(loading_task, return_exceptions=True)
@@ -538,10 +583,17 @@ async def price_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if user_locks[user_id].locked():
         await update.effective_message.reply_text("گزارش قبلی هنوز آماده نشده.")
         return
-    status = await update.effective_message.reply_text(
-        "⏳ <b>در حال دریافت آخرین نرخ...</b>", parse_mode=ParseMode.HTML
+    queue_notice = (
+        "\n\n<i>چند نفر دیگر هم هم‌زمان درخواست دارند؛ ربات خراب نیست، فقط کمی صف دارد.</i>"
+        if fetch_queue_busy() else ""
     )
-    await build_and_send_currency_report(context, update.effective_chat.id, user_id, status)
+    status = await update.effective_message.reply_text(
+        "⏳ <b>در حال دریافت آخرین نرخ...</b>" + queue_notice, parse_mode=ParseMode.HTML
+    )
+    await run_cancellable_report(
+        build_and_send_currency_report(context, update.effective_chat.id, user_id, status),
+        user_id,
+    )
 
 
 async def custom_hours_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -568,12 +620,19 @@ async def custom_hours_message(update: Update, context: ContextTypes.DEFAULT_TYP
         await update.effective_message.reply_text("گزارش قبلی هنوز آماده نشده.")
         return
     context.user_data.pop("awaiting_hours", None)
-    status = await update.effective_message.reply_text(
-        "⏳ <b>در حال شروع بررسی...</b>", parse_mode=ParseMode.HTML
+    queue_notice = (
+        "\n\n<i>چند نفر دیگر هم هم‌زمان درخواست دارند؛ ربات خراب نیست، فقط کمی صف دارد.</i>"
+        if fetch_queue_busy() else ""
     )
-    await build_and_send_report(
-        context, update.effective_chat.id, update.effective_user.id,
-        category, hours, status,
+    status = await update.effective_message.reply_text(
+        "⏳ <b>در حال شروع بررسی...</b>" + queue_notice, parse_mode=ParseMode.HTML
+    )
+    await run_cancellable_report(
+        build_and_send_report(
+            context, update.effective_chat.id, update.effective_user.id,
+            category, hours, status,
+        ),
+        update.effective_user.id,
     )
 
 
@@ -700,6 +759,15 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             await query.answer("هنوز عضو کانال نشدی 🙁", show_alert=True)
         return
 
+    if data == CANCEL_CALLBACK:
+        task = user_report_tasks.get(user.id)
+        if task and not task.done():
+            task.cancel()
+            await query.answer("در حال لغو گزارش...")
+        else:
+            await query.answer("گزارشی برای لغو در جریان نیست.", show_alert=True)
+        return
+
     if not await is_channel_member(context, user.id):
         await query.answer()
         await query.edit_message_text(
@@ -820,10 +888,17 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         if user_locks[user.id].locked():
             await query.answer("گزارش قبلی هنوز در حال آماده‌شدن است.", show_alert=True)
             return
-        await query.edit_message_text(
-            "⏳ <b>در حال دریافت آخرین نرخ...</b>", parse_mode=ParseMode.HTML
+        queue_notice = (
+            "\n\n<i>چند نفر دیگر هم هم‌زمان درخواست دارند؛ ربات خراب نیست، فقط کمی صف دارد.</i>"
+            if fetch_queue_busy() else ""
         )
-        await build_and_send_currency_report(context, query.message.chat_id, user.id, query.message)
+        await query.edit_message_text(
+            "⏳ <b>در حال دریافت آخرین نرخ...</b>" + queue_notice, parse_mode=ParseMode.HTML
+        )
+        await run_cancellable_report(
+            build_and_send_currency_report(context, query.message.chat_id, user.id, query.message),
+            user.id,
+        )
         return
     if data in {"digest:ai", "digest:security"}:
         category = data.split(":", 1)[1]
@@ -852,9 +927,12 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             await query.answer("گزارش قبلی هنوز در حال آماده‌شدن است.", show_alert=True)
             return
         context.user_data.pop("awaiting_hours", None)
-        await build_and_send_report(
-            context, query.message.chat_id, user.id,
-            category, int(raw_hours), query.message,
+        await run_cancellable_report(
+            build_and_send_report(
+                context, query.message.chat_id, user.id,
+                category, int(raw_hours), query.message,
+            ),
+            user.id,
         )
         return
 

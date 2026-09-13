@@ -57,6 +57,19 @@ ANALYSIS_CONCURRENCY = max(1, env_int("ANALYSIS_CONCURRENCY", 1))
 ADMIN_ID = env_int("ADMIN_ID", 0)  # آیدی عددی تلگرام شما؛ فقط همین آیدی به /stats دسترسی دارد
 MY_CHAT_ID = env_int("MY_CHAT_ID", 0) or ADMIN_ID  # چت مقصد برای اجرای مستقل main.py؛ اگر MY_CHAT_ID جدا ست نشود از ADMIN_ID استفاده می‌شود
 
+# اگر چند کاربر هم‌زمان درخواست بدهند، همه با هم روی یک TelegramClient اجرا
+# می‌شدند و ممکن بود محدودیت نرخ (FloodWait) تلگرام را بخوریم. این سمافور
+# سراسری تعداد استفاده هم‌زمان از Telethon را محدود می‌کند؛ بقیه درخواست‌ها
+# صف می‌شوند و به‌محض آزاد شدن نوبت اجرا می‌شوند.
+MAX_CONCURRENT_FETCHES = max(1, env_int("MAX_CONCURRENT_FETCHES", 1))
+_FETCH_SEMAPHORE = asyncio.Semaphore(MAX_CONCURRENT_FETCHES)
+
+
+def fetch_queue_busy() -> bool:
+    """True یعنی الان یک درخواست دیگر در حال استفاده از کلاینت Telethon است و
+    درخواست جدید باید در صف منتظر بماند (برای نمایش پیام مطمئن‌کننده به کاربر)."""
+    return _FETCH_SEMAPHORE.locked()
+
 SECURITY_CHANNELS = [
     "cybersecurityexperts", "thehackernews", "cibsecurity",
     "Cyber_Security_Channel", "androidMalware", "cloudandcybersecurity",
@@ -113,37 +126,38 @@ async def fetch_channel_messages(
 ) -> dict[str, list[ChannelMessage]]:
     """تمام پیام‌های متنی بازه را می‌خواند؛ هر کانال جدا، قدیمی به جدید."""
     channels = channels or CHANNELS
-    client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
     since = datetime.now(timezone.utc) - timedelta(hours=hours)
     output: dict[str, list[ChannelMessage]] = {}
 
-    await client.start()
-    try:
-        for channel in channels:
-            items: list[ChannelMessage] = []
-            try:
-                async for msg in client.iter_messages(
-                    channel, limit=MAX_MESSAGES_PER_CHANNEL
-                ):
-                    if msg.date and msg.date < since:
-                        break
-                    text = (msg.message or "").strip()
-                    if not text:
-                        continue
-                    items.append(ChannelMessage(
-                        channel=channel,
-                        message_id=msg.id,
-                        date=msg.date or datetime.now(timezone.utc),
-                        text=text,
-                        views=msg.views or 0,
-                        forwards=msg.forwards or 0,
-                    ))
-                if items:
-                    output[channel] = list(reversed(items))
-            except Exception:
-                logger.exception("خواندن کانال %s ناموفق بود", channel)
-    finally:
-        await client.disconnect()
+    async with _FETCH_SEMAPHORE:
+        client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
+        await client.start()
+        try:
+            for channel in channels:
+                items: list[ChannelMessage] = []
+                try:
+                    async for msg in client.iter_messages(
+                        channel, limit=MAX_MESSAGES_PER_CHANNEL
+                    ):
+                        if msg.date and msg.date < since:
+                            break
+                        text = (msg.message or "").strip()
+                        if not text:
+                            continue
+                        items.append(ChannelMessage(
+                            channel=channel,
+                            message_id=msg.id,
+                            date=msg.date or datetime.now(timezone.utc),
+                            text=text,
+                            views=msg.views or 0,
+                            forwards=msg.forwards or 0,
+                        ))
+                    if items:
+                        output[channel] = list(reversed(items))
+                except Exception:
+                    logger.exception("خواندن کانال %s ناموفق بود", channel)
+        finally:
+            await client.disconnect()
     return output
 
 
