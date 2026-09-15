@@ -110,7 +110,6 @@ The scraping core runs on deep **Telethon (MTProto)** access — no admin rights
 
 | <sub>▶ Feature</sub> | <sub>Description</sub> | <sub>Status</sub> |
 |:---:|:---:|:---:|
-| <sub>Full Persian + English UI</sub> | <sub>Language picker on `/start`, per-user command menus, LTR English reports, and English-only AI output</sub> | <sub>✅</sub> |
 | <sub>Two-layer AI analysis</sub> | <sub>Powered by DeepSeek V4 / OpenAI-compatible models with automatic fallback — extracts importance, reasoning, and technical impact</sub> | <sub>✅</sub> |
 | <sub>Resilient model chain</sub> | <sub>Primary model → configurable text-model fallbacks → Gemini as a last resort, with retry limits at every hop — a report is never faked</sub> | <sub>✅</sub> |
 | <sub>Live loading dashboard</sub> | <sub>Animated, stage-by-stage progress card while a report is generated, with an inline cancel button</sub> | <sub>✅</sub> |
@@ -456,7 +455,7 @@ Lower ANALYSIS_CONCURRENCY / MAX_CONCURRENT_FETCHES, or raise BATCH_CHAR_LIMIT=2
 ## `◈` Bot Commands
 
 ```
-/start          → choose Persian or English, then open the main menu
+/start          → boot up and show the main menu
 /menu           → quick category picker
 /ai             → latest AI digest
 /security       → latest cybersecurity digest
@@ -465,7 +464,6 @@ Lower ANALYSIS_CONCURRENCY / MAX_CONCURRENT_FETCHES, or raise BATCH_CHAR_LIMIT=2
 /price          → live USD & 18k gold rates
 /help           → usage guide
 /about          → about TeleBrief
-/language       → change the UI and AI report language
 /stats          → admin-only usage analytics
 ```
 
@@ -550,3 +548,6 @@ Released under the **MIT License** — full details in [LICENSE](LICENSE)
 <img src="https://capsule-render.vercel.app/api?type=venom&color=0:0a0d1a,50:1a2a5e,100:0a0d1a&height=160&section=footer&text=Built%20with%20intelligence%20%E2%80%94%20TeleBrief&fontSize=26&fontAlign=50&fontAlignY=55&fontColor=4A9EFF&animation=fadeIn&stroke=4A9EFF&strokeWidth=0.5" width="100%"/>
 
 </div>
+### English report rendering
+
+English report cards intentionally use a native left-to-right layout while preserving the Persian card contract: the same title, importance score, expandable summary, expandable analysis/key-points block, recommended-actions block, direct-source bullets, and TeleBrief footer. A final language guard rejects or translates model output if Persian prose leaks into an English report.

@@ -930,6 +930,7 @@ def normalize_market_report(data: Any, valid_sources: set[tuple[str, int]]) -> d
 def fallback_stories(
     grouped_messages: dict[str, list[ChannelMessage]],
     limit: int = MAX_STORIES,
+    lang: str = "fa",
 ) -> list[dict[str, Any]]:
     """فقط پیام‌های عمدتاً فارسی را اضطراری نشان می‌دهد؛ متن خام انگلیسی هرگز منتشر نمی‌شود."""
     messages = [m for items in grouped_messages.values() for m in items]
@@ -941,9 +942,9 @@ def fallback_stories(
         if persian_chars < 20 or persian_chars < latin_chars:
             continue
         result.append({
-            "title": "پیام مهم برای بررسی بیشتر",
+            "title": "Important message for review" if lang == "en" else "پیام مهم برای بررسی بیشتر",
             "summary": message.text[:900],
-            "why_important": "این پیام از منابع بازه انتخاب‌شده جدا شده است؛ تحلیل عمیق هوش مصنوعی موقتاً در دسترس نبود.",
+            "why_important": ("This message was selected from the requested sources because deep AI analysis was temporarily unavailable." if lang == "en" else "این پیام از منابع بازه انتخاب‌شده جدا شده است؛ تحلیل عمیق هوش مصنوعی موقتاً در دسترس نبود."),
             "key_points": [], "actions": [], "score": 1,
             "sources": [{"channel": message.channel, "message_id": message.message_id}],
         })
@@ -979,6 +980,62 @@ def _dedupe_stories(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
             seen.add(key)
             result.append(item)
     return result
+
+
+def _has_persian(value: Any) -> bool:
+    return bool(re.search(r"[\u0600-\u06ff]", str(value or "")))
+
+
+def translate_market_to_english(report: dict[str, Any], valid_sources: set[tuple[str, int]]) -> dict[str, Any]:
+    overview = str(report.get("overview", ""))
+    highlights = report.get("highlights", []) or []
+    if not _has_persian(overview) and not any(_has_persian(item.get("summary", "")) for item in highlights):
+        return report
+    payload = {"overview": overview, "highlights": highlights}
+    prompt = f"""Translate this crypto and geopolitical market report from Persian to polished professional English. Preserve the meaning, paragraph breaks, every highlight, and every source object exactly. Do not add facts or sources. Return only valid JSON with overview and highlights.
+
+{json.dumps(payload, ensure_ascii=False)}"""
+    try:
+        translated = call_model_with_fallback(prompt, temperature=0.05)
+        normalized = normalize_market_report(translated, valid_sources)
+        if normalized.get("overview") and not _has_persian(normalized.get("overview")) and not any(_has_persian(x.get("summary", "")) for x in normalized.get("highlights", [])):
+            return normalized
+    except Exception as exc:
+        logger.warning("English market translation guard failed: %s", exc)
+    return {"overview": "No English market overview was available for this range.", "highlights": []}
+
+
+def _story_has_persian(story: dict[str, Any]) -> bool:
+    fields = [story.get("title"), story.get("summary"), story.get("why_important"), *(story.get("key_points") or []), *(story.get("actions") or [])]
+    return any(_has_persian(item) for item in fields)
+
+
+def translate_stories_to_english(stories: list[dict[str, Any]], valid_sources: set[tuple[str, int]]) -> list[dict[str, Any]]:
+    """Final language guard. Models occasionally ignore a language instruction.
+    Translate only the prose fields, preserve scores and source IDs, and never
+    let a mixed-language card reach an English user.
+    """
+    if not any(_story_has_persian(item) for item in stories):
+        return stories
+    payload = [{
+        "title": item.get("title", ""), "summary": item.get("summary", ""),
+        "why_important": item.get("why_important", ""),
+        "key_points": item.get("key_points", []), "actions": item.get("actions", []),
+        "score": item.get("score", 0), "sources": item.get("sources", []),
+    } for item in stories]
+    prompt = f"""Translate the following news cards from Persian to natural professional English.
+This is a translation task, not a fact-checking or rewriting task. Preserve every fact, score, list item, and source object exactly. Translate only title, summary, why_important, key_points, and actions. Return only a valid JSON array with the same schema. Never add facts or sources.
+
+{json.dumps(payload, ensure_ascii=False)}"""
+    try:
+        translated = call_model_with_fallback(prompt, temperature=0.05)
+        result = normalize_stories(translated, valid_sources)
+        if result and not any(_story_has_persian(item) for item in result):
+            return result
+    except Exception as exc:
+        logger.warning("English story translation guard failed: %s", exc)
+    # Do not expose Persian content in an English report if the guard fails.
+    return [item for item in stories if not _story_has_persian(item)]
 
 
 async def analyze_messages(
@@ -1032,6 +1089,8 @@ async def analyze_messages(
             logger.error("ادغام یک بخش ناموفق بود؛ نامزدهای معتبر حفظ شدند: %s", exc)
             merged_all.extend(chunk)
     result = _dedupe_stories(merged_all)
+    if lang == "en":
+        result = translate_stories_to_english(result, valid_sources)
     return result if MAX_STORIES <= 0 else result[:MAX_STORIES]
 
 
@@ -1112,7 +1171,8 @@ async def analyze_crypto_market(grouped_messages: dict[str, list[ChannelMessage]
             if key and key not in seen_sources:
                 seen_sources.add(key)
                 highlights.append(item)
-    return {"overview": "\n\n".join(overviews), "highlights": highlights}
+    final_report = {"overview": "\n\n".join(overviews), "highlights": highlights}
+    return translate_market_to_english(final_report, valid_sources) if lang == "en" else final_report
 
 
 def rtl(value: str) -> str:
@@ -1194,21 +1254,46 @@ def format_story(story: dict[str, Any], rank: int, category: str, lang: str = "f
 
 
 def format_story_en(story: dict[str, Any], rank: int, category: str) -> str:
+    """English report card with the same visual hierarchy as the Persian card.
+
+    Deliberately not a line-by-line translator: English gets natural labels,
+    but preserves the Persian contract: title, score code block, three
+    expandable/detail quote sections, direct source bullets, and footer.
+    """
     icon = "🤖" if category == "ai" else "🛡"
-    lines = [f"{icon} <b>{rank}. Report: {html.escape(story['title'])}</b>", "",
-             f"<blockquote expandable>Summary: {html.escape(story['summary'])}</blockquote>"]
-    if story.get("why_important"):
-        lines.extend(["", "<b>Why it matters</b>", html.escape(story["why_important"])])
-    if story.get("key_points"):
-        lines.extend(["", "<b>Key points</b>"] + [f"• {html.escape(x)}" for x in story["key_points"]])
-    if story.get("actions"):
-        lines.extend(["", "<b>Recommended action</b>"] + [f"• {html.escape(x)}" for x in story["actions"]])
-    links = []
-    for source in story["sources"]:
-        channel = html.escape(source["channel"])
-        links.append(f'<a href="https://t.me/{source["channel"]}/{source["message_id"]}">View @{channel}</a>')
-    lines.extend(["", "<b>Direct source</b>", " | ".join(links)])
-    lines.extend(["", FOOTER])
+    title = html.escape(str(story.get("title", "Important story")))
+    summary = html.escape(str(story.get("summary", "")))
+    why = html.escape(str(story.get("why_important", "")))
+    score = story.get("score", 0)
+    lines = [
+        f"{icon} <b>{rank}. Report: {title}</b>",
+        "",
+        f"<code>Importance: {score}/100</code>",
+        "",
+        f"<blockquote expandable>Summary:\n{summary}</blockquote>",
+    ]
+    key_points = story.get("key_points") or []
+    if why or key_points:
+        detail = []
+        if why:
+            detail.append(f"Why it matters:\n{why}")
+        if key_points:
+            detail.append("Key points:\n" + "\n".join(f"• {html.escape(str(point))}" for point in key_points))
+        lines += ["", "<blockquote expandable>" + "\n\n".join(detail) + "</blockquote>"]
+    actions = story.get("actions") or []
+    if actions:
+        lines += ["", "<blockquote>Recommended actions:\n" + "\n".join(f"• {html.escape(str(action))}" for action in actions) + "</blockquote>"]
+    source_links = []
+    for source in story.get("sources") or []:
+        channel_raw = str(source.get("channel", "")).lstrip("@")
+        if not channel_raw:
+            continue
+        channel = html.escape(channel_raw)
+        message_id = int(source.get("message_id", 0))
+        source_links.append(f'<a href="https://t.me/{channel_raw}/{message_id}">View original message @{channel}</a>')
+    if source_links:
+        lines += ["", "📎 <b>Direct source</b>"] + [f"• {link}" for link in source_links]
+    lines += ["", FOOTER]
     return "\n".join(lines)
 
 
