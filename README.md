@@ -1,20 +1,25 @@
 <div align="center">
 
-<img src="https://capsule-render.vercel.app/api?type=venom&height=220&color=0:0a0d1a,50:1a2a5e,100:0a0d1a&text=TELEBRIEF&fontColor=4A9EFF&fontSize=60&fontAlign=50&fontAlignY=55&animation=fadeIn&stroke=4A9EFF&strokeWidth=1&desc=Autonomous%20Telegram%20Intelligence%20Feed%20%7C%20AI%20%C2%B7%20Cybersecurity%20%C2%B7%20MTProto&descAlign=50&descAlignY=75&descSize=15&descColor=7db8ff" width="100%"/>
+<img src="https://capsule-render.vercel.app/api?type=venom&height=220&color=0:0d0a1a,50:3B0A6E,100:0d0a1a&text=TELEBRIEF&fontColor=A855F7&fontSize=60&fontAlign=50&fontAlignY=55&animation=fadeIn&stroke=A855F7&strokeWidth=1&desc=Autonomous%20Telegram%20Intelligence%20Feed%20%7C%20AI%20%C2%B7%20Cybersecurity%20%C2%B7%20MTProto&descAlign=50&descAlignY=75&descSize=15&descColor=D8B4FE" width="100%"/>
 
 <br/>
 
-<img src="https://readme-typing-svg.herokuapp.com?font=Share+Tech+Mono&weight=700&size=20&duration=4000&pause=800&color=4A9EFF&center=true&vCenter=true&width=760&height=45&lines=%E2%96%B6+INTELLIGENCE+FEED+%E2%80%94+ONLINE;%E2%97%8F+TELETHON+%C2%B7+DEEPSEEK+%C2%B7+OPENAI+%C2%B7+GEMINI;%E2%96%B6+TWO-STAGE+AI+FILTERING+PIPELINE;%E2%97%8F+SELF-SERVE+TELEGRAM+BOT+UI"/>
+<img src="https://readme-typing-svg.herokuapp.com?font=Share+Tech+Mono&weight=700&size=20&duration=4000&pause=800&color=A855F7&center=true&vCenter=true&width=760&height=45&lines=%E2%96%B6+INTELLIGENCE+FEED+%E2%80%94+ONLINE;%E2%97%8F+TELETHON+%C2%B7+DEEPSEEK+%C2%B7+OPENAI+%C2%B7+GEMINI;%E2%96%B6+TWO-STAGE+AI+FILTERING+PIPELINE;%E2%97%8F+SELF-SERVE+TELEGRAM+BOT+UI"/>
 
 <br/>
 
-<a href="https://www.python.org/"><img src="https://img.shields.io/badge/%E2%96%B2%20PYTHON-3.11%2B-4A9EFF?style=for-the-badge&logo=python&logoColor=4A9EFF&labelColor=0a0d1a"/></a>
-<a href="https://t.me/telebriefdata_bot"><img src="https://img.shields.io/badge/%E2%96%B6%20TELEGRAM-Try_the_Bot-4A9EFF?style=for-the-badge&logo=telegram&logoColor=4A9EFF&labelColor=0a0d1a"/></a>
-<a href="LICENSE"><img src="https://img.shields.io/badge/%E2%97%88%20LICENSE-MIT-4A9EFF?style=for-the-badge&labelColor=0a0d1a"/></a>
-<a href="https://my.telegram.org"><img src="https://img.shields.io/badge/%E2%97%8F%20MTPROTO-Telethon-4A9EFF?style=for-the-badge&labelColor=0a0d1a"/></a>
-<a href="https://github.com/Amin-Moniry/TeleBrief"><img src="https://img.shields.io/badge/%E2%96%B3%20GITHUB-Amin--Moniry-4A9EFF?style=for-the-badge&logo=github&logoColor=4A9EFF&labelColor=0a0d1a"/></a>
+<a href="https://www.python.org/"><img src="https://img.shields.io/badge/%E2%96%B2%20PYTHON-3.11%2B-A855F7?style=for-the-badge&logo=python&logoColor=A855F7&labelColor=0d0a1a"/></a>
+<a href="https://t.me/telebriefdata_bot"><img src="https://img.shields.io/badge/%E2%96%B6%20TELEGRAM-Try_the_Bot-A855F7?style=for-the-badge&logo=telegram&logoColor=A855F7&labelColor=0d0a1a"/></a>
+<a href="LICENSE"><img src="https://img.shields.io/badge/%E2%97%88%20LICENSE-CC%20BY--NC--ND%204.0-A855F7?style=for-the-badge&labelColor=0d0a1a"/></a>
+<a href="https://my.telegram.org"><img src="https://img.shields.io/badge/%E2%97%8F%20MTPROTO-Telethon-A855F7?style=for-the-badge&labelColor=0d0a1a"/></a>
+<a href="https://github.com/Amin-Moniry/TeleBrief"><img src="https://img.shields.io/badge/%E2%96%B3%20GITHUB-Amin--Moniry-A855F7?style=for-the-badge&logo=github&logoColor=A855F7&labelColor=0d0a1a"/></a>
+<img src="https://img.shields.io/badge/%E2%97%8E%20LANGUAGES-English%20%C2%B7%20%D9%81%D8%A7%D8%B1%D8%B3%DB%8C-A855F7?style=for-the-badge&labelColor=0d0a1a"/>
 
 <br/><br/>
+
+> 🌐 **Bilingual out of the box** — TeleBrief fully supports **English** and **Persian (فارسی)**. Each user picks a language on first launch (or switches anytime with `/language`), and the entire experience — menus, commands, digest cards, admin stats, and system messages — is rendered natively in that language, including right-to-left formatting and Persian numerals for Farsi.
+
+<br/>
 
 > **"In a world drowning in information, the real art lies in what you choose to ignore."**
 
@@ -32,9 +37,9 @@
 
 <div align="center">
 
-**TeleBrief** monitors hundreds of Telegram channels covering technology, cybersecurity, the USD/gold market, crypto, and geopolitical conflict in real time. It strips out spam and low-value noise, then runs everything through a **two-stage AI pipeline** that returns scored, summarized reports with direct source links — delivered straight into a Telegram bot.
+**TeleBrief** monitors hundreds of Telegram channels covering technology, cybersecurity, the USD/gold market, crypto, and geopolitical conflict in real time. It strips out spam and low-value noise, then runs everything through a **two-stage AI pipeline** that returns scored, summarized reports with direct source links — delivered straight into a Telegram bot, **fully localized in English and Persian**.
 
-The scraping core runs on deep **Telethon (MTProto)** access — no admin rights required, no aggressive rate limits, and always live. Every report is rendered as a clean, structured card right inside Telegram, and each user can shape their own feed with custom channels, time windows, and categories.
+The scraping core runs on deep **Telethon (MTProto)** access — no admin rights required, no aggressive rate limits, and always live. Every report is rendered as a clean, structured card right inside Telegram, and each user can shape their own feed with custom channels, time windows, categories, and their preferred language.
 
 </div>
 
@@ -48,7 +53,7 @@ The scraping core runs on deep **Telethon (MTProto)** access — no admin rights
 
 ## `◈` Why TeleBrief?
 
-<img src="https://readme-typing-svg.herokuapp.com?font=Share+Tech+Mono&size=13&duration=3000&pause=999999&color=4A9EFF&center=true&vCenter=true&width=560&height=28&lines=%E2%97%89+From+thousands+of+posts+to+what+actually+matters"/>
+<img src="https://readme-typing-svg.herokuapp.com?font=Share+Tech+Mono&size=13&duration=3000&pause=999999&color=A855F7&center=true&vCenter=true&width=560&height=28&lines=%E2%97%89+From+thousands+of+posts+to+what+actually+matters"/>
 
 <small>
 
@@ -104,7 +109,7 @@ The scraping core runs on deep **Telethon (MTProto)** access — no admin rights
 
 ## `◈` Key Features
 
-<img src="https://readme-typing-svg.herokuapp.com?font=Share+Tech+Mono&size=13&duration=3000&pause=999999&color=4A9EFF&center=true&vCenter=true&width=520&height=28&lines=%E2%97%89+Everything+you+need+to+see+is+already+here"/>
+<img src="https://readme-typing-svg.herokuapp.com?font=Share+Tech+Mono&size=13&duration=3000&pause=999999&color=A855F7&center=true&vCenter=true&width=520&height=28&lines=%E2%97%89+Everything+you+need+to+see+is+already+here"/>
 
 <small>
 
@@ -122,6 +127,7 @@ The scraping core runs on deep **Telethon (MTProto)** access — no admin rights
 | <sub>USD & gold rates</sub> | <sub>Latest USD and 18k gold prices pulled from multiple currency channels, always resolved to the freshest real-world timestamp</sub> | <sub>✅</sub> |
 | <sub>Crypto & geopolitical market report</sub> | <sub>A narrative overview of crypto market conditions and war/geopolitical risk, plus sourced highlights with 10-item pagination</sub> | <sub>✅</sub> |
 | <sub>Atomic state persistence</sub> | <sub>User state (preferences, stats, channels) is written atomically to disk to survive concurrent writes and crashes</sub> | <sub>✅</sub> |
+| <sub>Full English & Persian localization</sub> | <sub>Per-user language selection via `/language`, with natively rendered menus, commands, digest cards, and admin stats — right-to-left layout and Farsi numerals included</sub> | <sub>✅</sub> |
 | <sub>Media support</sub> | <sub>Images, files, and voice messages</sub> | <sub>⏳</sub> |
 | <sub>Full analytics dashboard</sub> | <sub>Usage metrics and performance monitoring UI</sub> | <sub>⏳</sub> |
 
@@ -139,7 +145,7 @@ The scraping core runs on deep **Telethon (MTProto)** access — no admin rights
 
 ## `◈` System Architecture
 
-<img src="https://readme-typing-svg.herokuapp.com?font=Share+Tech+Mono&size=13&duration=3000&pause=999999&color=4A9EFF&center=true&vCenter=true&width=520&height=28&lines=%E2%97%89+End-to-end+data+flow"/>
+<img src="https://readme-typing-svg.herokuapp.com?font=Share+Tech+Mono&size=13&duration=3000&pause=999999&color=A855F7&center=true&vCenter=true&width=520&height=28&lines=%E2%97%89+End-to-end+data+flow"/>
 
 </div>
 
@@ -185,15 +191,27 @@ graph TD
 
 <div align="center">
 
+<br/>
+
+<img src="assets/Telebrief.jpg" alt="TeleBrief" width="100%"/>
+
+<br/><br/>
+
+</div>
+
+---
+
+<div align="center">
+
 ## `◈` Installation & Setup
 
-<img src="https://readme-typing-svg.herokuapp.com?font=Share+Tech+Mono&size=13&duration=3000&pause=999999&color=4A9EFF&center=false&vCenter=true&width=560&height=28&lines=%E2%96%B6+Let%27s+get+you+running"/>
+<img src="https://readme-typing-svg.herokuapp.com?font=Share+Tech+Mono&size=13&duration=3000&pause=999999&color=A855F7&center=false&vCenter=true&width=560&height=28&lines=%E2%96%B6+Let%27s+get+you+running"/>
 
 </div>
 
 **Prerequisites:** Python 3.11+ · a Telegram account · Telegram API ID/Hash from my.telegram.org · a bot token from @BotFather · an API key for the LLM gateway
 
-![01](https://img.shields.io/badge/01-Clone_%26_Setup-4A9EFF?style=flat-square&labelColor=0a0d1a) &nbsp; Clone the repo and create a virtual environment
+![01](https://img.shields.io/badge/01-Clone_%26_Setup-A855F7?style=flat-square&labelColor=0d0a1a) &nbsp; Clone the repo and create a virtual environment
 
 ```bash
 git clone https://github.com/Amin-Moniry/TeleBrief.git
@@ -204,13 +222,13 @@ source venv/bin/activate   # Linux/Mac
 # venv\Scripts\activate    # Windows
 ```
 
-![02](https://img.shields.io/badge/02-Install_Deps-4A9EFF?style=flat-square&labelColor=0a0d1a) &nbsp; Install dependencies
+![02](https://img.shields.io/badge/02-Install_Deps-A855F7?style=flat-square&labelColor=0d0a1a) &nbsp; Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-![03](https://img.shields.io/badge/03-Telegram_Session-4A9EFF?style=flat-square&labelColor=0a0d1a) &nbsp; Generate a Telegram session string
+![03](https://img.shields.io/badge/03-Telegram_Session-A855F7?style=flat-square&labelColor=0d0a1a) &nbsp; Generate a Telegram session string
 
 ```bash
 python -c "
@@ -223,14 +241,14 @@ with TelegramClient(StringSession(), API_ID, API_HASH) as c:
 "
 ```
 
-![04](https://img.shields.io/badge/04-Configure_.env-4A9EFF?style=flat-square&labelColor=0a0d1a) &nbsp; Set your environment variables
+![04](https://img.shields.io/badge/04-Configure_.env-A855F7?style=flat-square&labelColor=0d0a1a) &nbsp; Set your environment variables
 
 ```bash
 cp .env.example .env
 # edit .env with your own values
 ```
 
-![05](https://img.shields.io/badge/05-Run-4A9EFF?style=flat-square&labelColor=0a0d1a) &nbsp; Run it
+![05](https://img.shields.io/badge/05-Run-A855F7?style=flat-square&labelColor=0d0a1a) &nbsp; Run it
 
 ```bash
 python command_bot.py
@@ -304,6 +322,64 @@ docker run -d --name telebrief \
 
 <div align="center">
 
+## `◈` System Requirements
+
+<small>
+
+| <sub>Component</sub> | <sub>Minimum</sub> | <sub>Recommended</sub> |
+|:--------------------:|:-------------------:|:-----------------------:|
+| <sub>OS</sub> | <sub>Windows 10, Ubuntu 20.04+, macOS 11+</sub> | <sub>Latest stable versions</sub> |
+| <sub>Python</sub> | <sub>3.11</sub> | <sub>3.12+</sub> |
+| <sub>RAM</sub> | <sub>512 MB</sub> | <sub>1 GB+</sub> |
+| <sub>Network</sub> | <sub>Stable outbound connection</sub> | <sub>Low-latency, always-on</sub> |
+| <sub>Hosting</sub> | <sub>Any Python 3.11+ host</sub> | <sub>Railway / Render / Fly.io / VPS with process manager</sub> |
+
+</small>
+
+</div>
+
+<br/>
+
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif">
+
+---
+
+<div align="center">
+
+## `◈` Project Structure
+
+<img src="https://readme-typing-svg.herokuapp.com?font=Share+Tech+Mono&size=13&duration=3000&pause=999999&color=A855F7&center=false&vCenter=true&width=520&height=28&lines=%E2%96%B6+Repository+layout+%E2%80%94+TeleBrief"/>
+
+</div>
+
+```
+TeleBrief/
+├── .gitignore
+├── assets/
+│   └── Telebrief.jpg      # Logo used at the top of this README
+├── main.py                # Process entry point — boots the bot
+├── command_bot.py         # Telegram handlers: commands, callbacks, menus, /stats
+├── digest_core.py         # Scraping, two-stage AI pipeline, formatting, scoring
+├── localized_bot.py       # Language state helpers + localize() dispatch
+├── ui_en.py                # English strings, menus, and card templates
+├── ui_fa.py                # Persian (فارسی) strings, menus, and card templates
+├── bot_state.json          # Atomic, on-disk user state (prefs, stats, channels)
+├── requirements.txt         # Python dependencies
+├── runtime.txt              # Pinned Python runtime for deployment platforms
+├── Procfile                 # Process declaration for Railway / Heroku-style hosts
+└── README.md
+```
+
+<sub>`bot_state.json` is written atomically on every update so concurrent requests and crashes never leave it corrupted — treat it as runtime data, not something to hand-edit.</sub>
+
+<br/>
+
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif">
+
+---
+
+<div align="center">
+
 ## `◈` Environment Configuration
 
 </div>
@@ -346,7 +422,7 @@ GEMINI_MODEL    = "gemini-2.5-flash"                # last-resort fallback
 
 ## `◈` Troubleshooting
 
-<img src="https://readme-typing-svg.herokuapp.com?font=Share+Tech+Mono&size=13&duration=3000&pause=999999&color=4A9EFF&center=false&vCenter=true&width=500&height=28&lines=%E2%96%B6+Common+issues+and+fixes"/>
+<img src="https://readme-typing-svg.herokuapp.com?font=Share+Tech+Mono&size=13&duration=3000&pause=999999&color=A855F7&center=false&vCenter=true&width=500&height=28&lines=%E2%96%B6+Common+issues+and+fixes"/>
 
 </div>
 
@@ -382,6 +458,29 @@ Lower ANALYSIS_CONCURRENCY / MAX_CONCURRENT_FETCHES, or raise BATCH_CHAR_LIMIT=2
 
 <div align="center">
 
+## `◈` Localization
+
+<img src="https://readme-typing-svg.herokuapp.com?font=Share+Tech+Mono&size=13&duration=3000&pause=999999&color=A855F7&center=true&vCenter=true&width=520&height=28&lines=%E2%97%89+English+%C2%B7+%D9%81%D8%A7%D8%B1%D8%B3%DB%8C"/>
+
+</div>
+
+TeleBrief ships as a **fully bilingual bot** — Persian (فارسی) is the default, and English is one tap away.
+
+- **Language picker on first launch**, and switchable anytime with `/language`
+- **Per-user, persisted preference** — stored in each user's state and respected across every command, report, and admin view
+- **Native command menus** — Telegram's command list itself changes language (e.g. `/addchannel` vs its Persian label) immediately after a user switches
+- **Right-to-left Persian layout** with Farsi numerals (۰۱۲۳۴۵۶۷۸۹) throughout digest cards and stats
+- **Consistent card contract across both languages** — the same title, importance score, expandable summary, expandable analysis/key-points block, recommended-actions block, direct-source bullets, and footer, just rendered natively left-to-right in English and right-to-left in Persian
+- **Language-leak guard** — a final check rejects or re-renders model output if the wrong language slips into a report, so an English report never ends up with stray Persian prose (or vice versa)
+
+<br/>
+
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif">
+
+---
+
+<div align="center">
+
 ## `◈` FAQ
 
 <small>
@@ -393,6 +492,7 @@ Lower ANALYSIS_CONCURRENCY / MAX_CONCURRENT_FETCHES, or raise BATCH_CHAR_LIMIT=2
 | <sub>**What happens if the primary model fails?**</sub> | <sub>It automatically retries, then falls through the configured fallback models, then Gemini — never a fabricated report</sub> |
 | <sub>**How's privacy handled?**</sub> | <sub>Local analysis, no persistent logs, subject to your chosen API provider's ToS</sub> |
 | <sub>**Can I add my own channel?**</sub> | <sub>Yes — use `/addchannel` and send `@channel_name`</sub> |
+| <sub>**Which languages are supported?**</sub> | <sub>English and Persian (فارسی), fully — switch anytime with `/language`</sub> |
 | <sub>**Why is it slow sometimes?**</sub> | <sub>Large batch size or a slow LLM response — try raising `ANALYSIS_CONCURRENCY`</sub> |
 
 </small>
@@ -462,6 +562,7 @@ Lower ANALYSIS_CONCURRENCY / MAX_CONCURRENT_FETCHES, or raise BATCH_CHAR_LIMIT=2
 /crypto         → crypto market & geopolitical risk report
 /addchannel     → add a personal channel to your feed
 /price          → live USD & 18k gold rates
+/language       → switch between English and Persian (فارسی)
 /help           → usage guide
 /about          → about TeleBrief
 /stats          → admin-only usage analytics
@@ -499,7 +600,7 @@ Lower ANALYSIS_CONCURRENCY / MAX_CONCURRENT_FETCHES, or raise BATCH_CHAR_LIMIT=2
 
 <br/>
 
-<img src="https://readme-typing-svg.herokuapp.com?font=Share+Tech+Mono&size=14&duration=2000&pause=400&color=4A9EFF&center=true&vCenter=true&width=500&height=30&lines=%E2%96%B6+Created+with+%E2%9D%A4+by+Amin+Moniry"/>
+<img src="https://readme-typing-svg.herokuapp.com?font=Share+Tech+Mono&size=14&duration=2000&pause=400&color=A855F7&center=true&vCenter=true&width=500&height=30&lines=%E2%96%B6+Created+with+%E2%9D%A4+by+Amin+Moniry"/>
 
 <br/>
 
@@ -507,17 +608,17 @@ Lower ANALYSIS_CONCURRENCY / MAX_CONCURRENT_FETCHES, or raise BATCH_CHAR_LIMIT=2
 <tr>
 <td align="center" width="210">
 <a href="https://github.com/Amin-Moniry">
-<img src="https://img.shields.io/badge/◈_GITHUB-Amin--Moniry-4A9EFF?style=for-the-badge&logo=github&logoColor=4A9EFF&labelColor=0a0d1a&color=0d1533" width="200"/>
+<img src="https://img.shields.io/badge/◈_GITHUB-Amin--Moniry-A855F7?style=for-the-badge&logo=github&logoColor=A855F7&labelColor=0d0a1a&color=1a0a2e" width="200"/>
 </a>
 </td>
 <td align="center" width="210">
 <a href="https://t.me/telebriefdata_bot">
-<img src="https://img.shields.io/badge/◈_TELEGRAM-@telebriefdata__bot-4A9EFF?style=for-the-badge&logo=telegram&logoColor=4A9EFF&labelColor=0a0d1a&color=0d1533" width="200"/>
+<img src="https://img.shields.io/badge/◈_TELEGRAM-@telebriefdata__bot-A855F7?style=for-the-badge&logo=telegram&logoColor=A855F7&labelColor=0d0a1a&color=1a0a2e" width="200"/>
 </a>
 </td>
 <td align="center" width="210">
 <a href="https://github.com/Amin-Moniry/TeleBrief/issues">
-<img src="https://img.shields.io/badge/◈_ISSUES-Report_a_Bug-4A9EFF?style=for-the-badge&logo=githubactions&logoColor=4A9EFF&labelColor=0a0d1a&color=0d1533" width="200"/>
+<img src="https://img.shields.io/badge/◈_ISSUES-Report_a_Bug-A855F7?style=for-the-badge&logo=githubactions&logoColor=A855F7&labelColor=0d0a1a&color=1a0a2e" width="200"/>
 </a>
 </td>
 </tr>
@@ -537,17 +638,14 @@ Lower ANALYSIS_CONCURRENCY / MAX_CONCURRENT_FETCHES, or raise BATCH_CHAR_LIMIT=2
 
 ## `◈` License
 
-Released under the **MIT License** — full details in [LICENSE](LICENSE)
+Released under **CC BY-NC-ND 4.0** — free to use and study for learning and non-commercial purposes; commercial use, taking the underlying idea/architecture for another product, or distributing modified versions is **not permitted** without written permission. Full details in [LICENSE](LICENSE)
 
 <br/>
 
-<img src="https://readme-typing-svg.herokuapp.com?font=Share+Tech+Mono&weight=700&size=15&duration=3500&pause=900&color=4A9EFF&center=true&vCenter=true&width=720&height=50&lines=%E2%96%B6+Engineered+by+Amin+Moniry;%E2%97%8F+One+Feed.+Two+Stages.+Zero+Noise.;%E2%96%B6+Telethon+%C2%B7+DeepSeek+%C2%B7+OpenAI+%C2%B7+Gemini+%C2%B7+2026"/>
+<img src="https://readme-typing-svg.herokuapp.com?font=Share+Tech+Mono&weight=700&size=15&duration=3500&pause=900&color=A855F7&center=true&vCenter=true&width=720&height=50&lines=%E2%96%B6+Engineered+by+Amin+Moniry;%E2%97%8F+One+Feed.+Two+Stages.+Zero+Noise.;%E2%96%B6+Telethon+%C2%B7+DeepSeek+%C2%B7+OpenAI+%C2%B7+Gemini+%C2%B7+2026"/>
 
 <br/>
 
-<img src="https://capsule-render.vercel.app/api?type=venom&color=0:0a0d1a,50:1a2a5e,100:0a0d1a&height=160&section=footer&text=Built%20with%20intelligence%20%E2%80%94%20TeleBrief&fontSize=26&fontAlign=50&fontAlignY=55&fontColor=4A9EFF&animation=fadeIn&stroke=4A9EFF&strokeWidth=0.5" width="100%"/>
+<img src="https://capsule-render.vercel.app/api?type=venom&color=0:0d0a1a,50:3B0A6E,100:0d0a1a&height=160&section=footer&text=Built%20with%20intelligence%20%E2%80%94%20TeleBrief&fontSize=26&fontAlign=50&fontAlignY=55&fontColor=A855F7&animation=fadeIn&stroke=A855F7&strokeWidth=0.5" width="100%"/>
 
 </div>
-### English report rendering
-
-English report cards intentionally use a native left-to-right layout while preserving the Persian card contract: the same title, importance score, expandable summary, expandable analysis/key-points block, recommended-actions block, direct-source bullets, and TeleBrief footer. A final language guard rejects or translates model output if Persian prose leaks into an English report.
