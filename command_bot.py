@@ -12,6 +12,7 @@ from telegram import (
 )
 from telegram.constants import ParseMode
 from telegram.error import BadRequest
+from localized_bot import LocalizedBot, language_for, localize
 from telegram.ext import (
     Application, CallbackQueryHandler, CommandHandler, ContextTypes,
     MessageHandler, filters,
@@ -34,6 +35,55 @@ logger = logging.getLogger(__name__)
 user_locks: dict[int, asyncio.Lock] = defaultdict(asyncio.Lock)
 user_report_tasks: dict[int, tuple[str, asyncio.Task]] = {}
 PAGE_SIZE = 10
+
+
+def language_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([[
+        InlineKeyboardButton("🇮🇷 فارسی", callback_data="lang:fa"),
+        InlineKeyboardButton("🇬🇧 English", callback_data="lang:en"),
+    ]])
+
+
+def user_language(user_id: int) -> str:
+    return user_prefs(user_id).get("language", "fa")
+
+
+def localized(user_id: int, text: str) -> str:
+    return localize(text, user_language(user_id))
+
+
+def commands_for(lang: str, admin: bool = False) -> list[BotCommand]:
+    if lang == "en":
+        commands = [
+            BotCommand("start", "Choose language and open the main menu"),
+            BotCommand("menu", "Choose a news category"),
+            BotCommand("ai", "Artificial intelligence report"),
+            BotCommand("security", "Cybersecurity report"),
+            BotCommand("crypto", "Crypto and geopolitical risk report"),
+            BotCommand("addchannel", "Add a personal channel"),
+            BotCommand("price", "Latest USD and gold rates"),
+            BotCommand("help", "Usage guide"),
+            BotCommand("about", "About TeleBrief"),
+            BotCommand("language", "Change language"),
+        ]
+        if admin:
+            commands.append(BotCommand("stats", "Bot analytics (admin only)"))
+        return commands
+    commands = [
+        BotCommand("start", "انتخاب زبان و نمایش منوی اصلی"),
+        BotCommand("menu", "انتخاب دسته خبری"),
+        BotCommand("ai", "گزارش هوش مصنوعی"),
+        BotCommand("security", "گزارش امنیت شبکه"),
+        BotCommand("crypto", "گزارش کریپتو و جنگ"),
+        BotCommand("addchannel", "افزودن کانال شخصی"),
+        BotCommand("price", "نرخ لحظه‌ای دلار و طلا"),
+        BotCommand("help", "راهنمای استفاده"),
+        BotCommand("about", "معرفی TeleBrief"),
+        BotCommand("language", "تغییر زبان"),
+    ]
+    if admin:
+        commands.append(BotCommand("stats", "آمار ربات (فقط ادمین)"))
+    return commands
 
 
 def report_token() -> str:
@@ -349,14 +399,11 @@ ABOUT_TEXT = (
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
-    if not await require_join(update, context):
-        return
-    is_new = touch_user(user.id, user)
+    touch_user(user.id, user)
     await update.effective_message.reply_text(
-        welcome_text(user.first_name, is_new),
-        parse_mode=ParseMode.HTML,
-        reply_markup=main_menu_keyboard(),
-        disable_web_page_preview=True,
+        "🌐 <b>زبان خود را انتخاب کنید | Choose your language</b>\n\n"
+        "برای ادامه زبان را انتخاب کنید. | Select a language to continue.",
+        parse_mode=ParseMode.HTML, reply_markup=language_keyboard(),
     )
 
 
@@ -395,7 +442,7 @@ def more_keyboard(remaining: int, user_id: int, token: str) -> InlineKeyboardMar
     if remaining > 0:
         rows.append([
             InlineKeyboardButton(
-                f"مشاهده خبرهای بعدی (۱۰ تا از {remaining} خبر باقی‌مانده) 🌀",
+                f"مشاهده خبرهای بعدی ({min(PAGE_SIZE, remaining)} تا از {remaining} خبر باقی‌مانده) 🌀",
                 callback_data=f"digest:more:{user_id}:{token}",
             )
         ])
@@ -414,7 +461,7 @@ async def send_story_page(
     for rank, story in enumerate(stories[start:end], start=start + 1):
         await context.bot.send_message(
             chat_id=chat_id,
-            text=format_story(story, rank, cache["category"]),
+            text=format_story(story, rank, cache["category"], lang=cache.get("lang", "fa")),
             parse_mode=ParseMode.HTML,
             disable_web_page_preview=True,
         )
@@ -428,7 +475,7 @@ def more_market_keyboard(remaining: int, user_id: int, token: str) -> InlineKeyb
     if remaining > 0:
         rows.append([
             InlineKeyboardButton(
-                f"مشاهده نکته‌های بعدی (۱۰ تا از {remaining} نکته باقی‌مانده) 🌀",
+                f"مشاهده نکته‌های بعدی ({min(PAGE_SIZE, remaining)} تا از {remaining} نکته باقی‌مانده) 🌀",
                 callback_data=f"market:more:{user_id}:{token}",
             )
         ])
@@ -447,7 +494,7 @@ async def send_market_page(
     for rank, item in enumerate(highlights[start:end], start=start + 1):
         await context.bot.send_message(
             chat_id=chat_id,
-            text=format_market_highlight(item, rank),
+            text=format_market_highlight(item, rank, lang=cache.get("lang", "fa")),
             parse_mode=ParseMode.HTML,
             disable_web_page_preview=True,
         )
@@ -526,15 +573,15 @@ async def build_and_send_report(
                 parse_mode=ParseMode.HTML,
             )
             extra_channels = user_prefs(user_id).get("extra_channels", [])
-            result = await prepare_digest(hours=hours, category=category, extra_channels=extra_channels)
+            result = await prepare_digest(hours=hours, category=category, extra_channels=extra_channels, lang=user_language(user_id))
             record_request(user_id, category)
             loading_task.cancel()
             await asyncio.gather(loading_task, return_exceptions=True)
             stories = result["stories"]
-            cache = {"stories": stories, "category": category, "offset": 0}
+            cache = {"stories": stories, "category": category, "offset": 0, "lang": user_language(user_id)}
             context.user_data.setdefault("digest_caches", {})[token] = cache
             await status_message.edit_text(
-                format_date_header(hours, result["total_messages"], result["active_channels"])
+                format_date_header(hours, result["total_messages"], result["active_channels"], lang=user_language(user_id))
                 + f"\n\n<b>وضعیت کانال‌ها:</b> هر {result['configured_channels']} کانال پیمایش شد؛ {result['active_channels']} کانال در این بازه پیام داشت.",
                 parse_mode=ParseMode.HTML,
                 disable_web_page_preview=True,
@@ -624,7 +671,7 @@ async def build_and_send_currency_report(
             await asyncio.gather(loading_task, return_exceptions=True)
             text = format_currency_digest(
                 result["readings"], result["total_messages"], result["active_channels"],
-                result.get("contributors"),
+                result.get("contributors"), lang=user_language(user_id),
             )
             await status_message.edit_text(
                 text,
@@ -693,14 +740,14 @@ async def build_and_send_market_report(
                 "<blockquote expandable>وضعیت کلی بازار و ریسک‌های جنگ/ژئوپلیتیک مؤثر بر آن جمع‌بندی می‌شود.</blockquote>",
                 parse_mode=ParseMode.HTML,
             )
-            result = await prepare_market_digest(hours=hours)
+            result = await prepare_market_digest(hours=hours, lang=user_language(user_id))
             record_request(user_id, "crypto")
             loading_task.cancel()
             await asyncio.gather(loading_task, return_exceptions=True)
             highlights = result["highlights"]
             await status_message.edit_text(
                 format_market_overview(
-                    hours, result["total_messages"], result["active_channels"], result["overview"]
+                    hours, result["total_messages"], result["active_channels"], result["overview"], lang=user_language(user_id)
                 ),
                 parse_mode=ParseMode.HTML,
                 disable_web_page_preview=True,
@@ -716,7 +763,7 @@ async def build_and_send_market_report(
                     reply_markup=back_keyboard(),
                 )
                 return
-            cache = {"highlights": highlights, "offset": 0}
+            cache = {"highlights": highlights, "offset": 0, "lang": user_language(user_id)}
             context.user_data.setdefault("market_caches", {})[token] = cache
             sent, remaining = await send_market_page(context, chat_id, cache)
             await context.bot.send_message(
@@ -986,10 +1033,34 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     data = query.data or ""
     user = query.from_user
 
+    if data in {"lang:fa", "lang:en"}:
+        lang = data.split(":", 1)[1]
+        touch_user(user.id, user)
+        update_user_prefs(user.id, language=lang)
+        try:
+            await context.bot.set_my_commands(
+                commands_for(lang, admin=bool(ADMIN_ID and user.id == ADMIN_ID)),
+                scope=BotCommandScopeChat(chat_id=user.id),
+            )
+        except Exception:
+            logger.warning("Could not update command menu for user %s", user.id)
+        await query.answer("زبان فارسی انتخاب شد." if lang == "fa" else "English selected.")
+        if not await is_channel_member(context, user.id):
+            await query.edit_message_text(
+                join_required_text(user.first_name), parse_mode=ParseMode.HTML,
+                reply_markup=join_required_keyboard(), disable_web_page_preview=True,
+            )
+            return
+        await query.edit_message_text(
+            welcome_text(user.first_name, False), parse_mode=ParseMode.HTML,
+            reply_markup=main_menu_keyboard(), disable_web_page_preview=True,
+        )
+        return
+
     if data == JOIN_CHECK_CALLBACK:
         if await is_channel_member(context, user.id):
             is_new = touch_user(user.id, user)
-            await query.answer("✅ عضویت تایید شد!")
+            await query.answer(localized(user.id, "✅ عضویت تایید شد!"))
             await query.edit_message_text(
                 welcome_text(user.first_name, is_new),
                 parse_mode=ParseMode.HTML,
@@ -997,7 +1068,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 disable_web_page_preview=True,
             )
         else:
-            await query.answer("هنوز عضو کانال نشدی 🙁", show_alert=True)
+            await query.answer(localized(user.id, "هنوز عضو کانال نشدی 🙁"), show_alert=True)
         return
 
     if data.startswith("cancel:"):
@@ -1005,16 +1076,16 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             _, owner_raw, token = data.split(":", 2)
             owner_id = int(owner_raw)
         except (ValueError, TypeError):
-            await query.answer("دکمه نامعتبر است.", show_alert=True)
+            await query.answer(localized(user.id, "دکمه نامعتبر است."), show_alert=True)
             return
         current = user_report_tasks.get(owner_id)
         if user.id != owner_id:
-            await query.answer("این گزارش متعلق به شما نیست.", show_alert=True)
+            await query.answer(localized(user.id, "این گزارش متعلق به شما نیست."), show_alert=True)
         elif current and current[0] == token and not current[1].done():
             current[1].cancel()
-            await query.answer("در حال لغو گزارش...")
+            await query.answer(localized(user.id, "در حال لغو گزارش..."))
         else:
-            await query.answer("این گزارش دیگر در جریان نیست.", show_alert=True)
+            await query.answer(localized(user.id, "این گزارش دیگر در جریان نیست."), show_alert=True)
         return
 
     if not await is_channel_member(context, user.id):
@@ -1029,7 +1100,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     touch_user(user.id, user)
     if data.startswith("hours:") and report_active(user.id):
-        await query.answer("گزارش قبلی هنوز در حال آماده‌شدن است.", show_alert=True)
+        await query.answer(localized(user.id, "گزارش قبلی هنوز در حال آماده‌شدن است."), show_alert=True)
         return
     await query.answer()
 
@@ -1068,7 +1139,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         prefs = user_prefs(user.id)
         channels = prefs.get("extra_channels", [])
         if not channels:
-            await query.answer("لیست شما خالی است.", show_alert=True)
+            await query.answer(localized(user.id, "لیست شما خالی است."), show_alert=True)
             return
         context.user_data["awaiting_channel_removal"] = True
         await query.edit_message_text(
@@ -1080,7 +1151,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if data == "channel:clear":
         prefs = user_prefs(user.id)
         if not prefs.get("extra_channels", []):
-            await query.answer("لیست شما خالی است.", show_alert=True)
+            await query.answer(localized(user.id, "لیست شما خالی است."), show_alert=True)
             return
         await query.edit_message_text(
             "🌀 <b>پاک‌کردن همه کانال‌ها</b>\n\n"
@@ -1121,10 +1192,10 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             _, _, owner_raw, token = data.split(":", 3)
             owner_id = int(owner_raw)
         except (ValueError, TypeError):
-            await query.answer("دکمه نامعتبر است.", show_alert=True)
+            await query.answer(localized(user.id, "دکمه نامعتبر است."), show_alert=True)
             return
         if user.id != owner_id:
-            await query.answer("این گزارش متعلق به شما نیست.", show_alert=True)
+            await query.answer(localized(user.id, "این گزارش متعلق به شما نیست."), show_alert=True)
             return
         cache = context.user_data.get("digest_caches", {}).get(token)
         if not cache:
@@ -1148,10 +1219,10 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             _, _, owner_raw, token = data.split(":", 3)
             owner_id = int(owner_raw)
         except (ValueError, TypeError):
-            await query.answer("دکمه نامعتبر است.", show_alert=True)
+            await query.answer(localized(user.id, "دکمه نامعتبر است."), show_alert=True)
             return
         if user.id != owner_id:
-            await query.answer("این گزارش متعلق به شما نیست.", show_alert=True)
+            await query.answer(localized(user.id, "این گزارش متعلق به شما نیست."), show_alert=True)
             return
         cache = context.user_data.get("market_caches", {}).get(token)
         if not cache:
@@ -1172,7 +1243,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return
     if data == "digest:currency":
         if report_active(user.id):
-            await query.answer("گزارش قبلی هنوز در حال آماده‌شدن است.", show_alert=True)
+            await query.answer(localized(user.id, "گزارش قبلی هنوز در حال آماده‌شدن است."), show_alert=True)
             return
         queue_notice = (
             "\n\n<i>چند نفر دیگر هم هم‌زمان درخواست دارند؛ ربات خراب نیست، فقط کمی صف دارد.</i>"
@@ -1211,7 +1282,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if data.startswith("hours:"):
         _, category, raw_hours = data.split(":", 2)
         if report_active(user.id):
-            await query.answer("گزارش قبلی هنوز در حال آماده‌شدن است.", show_alert=True)
+            await query.answer(localized(user.id, "گزارش قبلی هنوز در حال آماده‌شدن است."), show_alert=True)
             return
         context.user_data.pop("awaiting_hours", None)
         token = report_token()
@@ -1315,40 +1386,62 @@ def build_stats_report() -> tuple[str, list[str]]:
     return summary, pages
 
 
+def build_stats_report_en() -> tuple[str, list[str]]:
+    state = load_state()
+    users = state.get("users", {})
+    today = datetime.now().date().isoformat()
+    totals: dict[str, int] = defaultdict(int)
+    for item in users.values():
+        for category, count in item.get("requests_by_category", {}).items():
+            totals[category] += count
+    total_requests = sum(item.get("total_requests", 0) for item in users.values())
+    new_today = sum(1 for item in users.values() if str(item.get("first_seen", "")).startswith(today))
+    names = {"ai": "Artificial Intelligence", "security": "Cybersecurity", "currency": "USD & Gold", "crypto": "Crypto & Geopolitics"}
+    lines = ["<blockquote>TeleBrief Analytics</blockquote>", "", f"👥 Users: <b>{len(users)}</b>", f"✨ New today: <b>{new_today}</b>", f"📨 Requests: <b>{total_requests}</b>"]
+    if totals:
+        lines += ["", "🗂 <b>By category</b>"] + [f"• {names.get(k, k)}: {v}" for k, v in sorted(totals.items(), key=lambda x: -x[1])]
+    rows = []
+    ranked = sorted(users.items(), key=lambda x: x[1].get("total_requests", 0), reverse=True)
+    for rank, (uid, item) in enumerate(ranked, 1):
+        name = html.escape(item.get("first_name") or "Unknown")
+        username = f" @{html.escape(item['username'])}" if item.get("username") else ""
+        last = item.get("last_interaction", "Unknown")
+        rows.append(f"<blockquote>☆ User {rank}: {name}{username}</blockquote>\n♡ {item.get('total_requests', 0)} requests, last active: {html.escape(last)}\n<i>ID: {uid}</i>")
+    pages, chunk, size = [], [], 0
+    for row in rows:
+        if size + len(row) > 3500:
+            pages.append("\n\n".join(chunk)); chunk, size = [], 0
+        chunk.append(row); size += len(row) + 2
+    if chunk: pages.append("\n\n".join(chunk))
+    return "\n".join(lines), pages
+
+
 async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """فقط برای ادمین؛ برای هر کس دیگری کاملاً سکوت می‌کند تا وجود دستور فاش نشود."""
     if not ADMIN_ID or update.effective_user.id != ADMIN_ID:
         return
-    summary, pages = build_stats_report()
+    lang = user_language(update.effective_user.id)
+    summary, pages = build_stats_report_en() if lang == "en" else build_stats_report()
     await update.effective_message.reply_text(summary, parse_mode=ParseMode.HTML)
     if not pages:
         return
     for i, page in enumerate(pages, start=1):
-        header = f"👤 <b>لیست کاربران</b> — صفحه {fa_num(i)}/{fa_num(len(pages))}\n\n"
+        header = (f"👤 <b>User List</b> | Page {i}/{len(pages)}\n\n" if lang == "en" else f"👤 <b>لیست کاربران</b> — صفحه {fa_num(i)}/{fa_num(len(pages))}\n\n")
         await update.effective_message.reply_text(header + page, parse_mode=ParseMode.HTML)
 
 
 async def post_init(application: Application) -> None:
-    default_commands = [
-        BotCommand("start", "شروع و نمایش منوی اصلی"),
-        BotCommand("menu", "انتخاب دسته خبری"),
-        BotCommand("ai", "گزارش هوش مصنوعی"),
-        BotCommand("security", "گزارش امنیت شبکه"),
-        BotCommand("crypto", "گزارش کریپتو و جنگ"),
-        BotCommand("addchannel", "افزودن کانال شخصی"),
-        BotCommand("price", "نرخ لحظه‌ای دلار و طلا"),
-        BotCommand("help", "راهنمای استفاده"),
-        BotCommand("about", "معرفی TeleBrief"),
-    ]
-    await application.bot.set_my_commands(default_commands)
+    # Telegram requires one global command language; Persian remains the default.
+    # A per-chat English command menu is installed immediately after language selection.
+    await application.bot.set_my_commands(commands_for("fa"))
     if ADMIN_ID:
         try:
+            lang = language_for(ADMIN_ID)
             await application.bot.set_my_commands(
-                default_commands + [BotCommand("stats", "آمار ربات (فقط ادمین)")],
-                scope=BotCommandScopeChat(chat_id=ADMIN_ID),
+                commands_for(lang, admin=True), scope=BotCommandScopeChat(chat_id=ADMIN_ID),
             )
         except Exception:
-            logger.warning("تنظیم منوی دستورهای اختصاصی ادمین ناموفق بود؛ /stats همچنان کار می‌کند.")
+            logger.warning("Could not configure the admin command menu")
 
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1363,9 +1456,10 @@ def main() -> None:
     if not BOT_TOKEN:
         raise RuntimeError("متغیر محیطی BOT_TOKEN تنظیم نشده است.")
 
-    application = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
+    application = Application.builder().bot(LocalizedBot(token=BOT_TOKEN)).post_init(post_init).build()
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("menu", menu_command))
+    application.add_handler(CommandHandler("language", start_command))
     application.add_handler(CommandHandler(["ai", "security", "crypto"], category_command))
     application.add_handler(CommandHandler("addchannel", add_channel_command))
     application.add_handler(CommandHandler("help", help_command))
