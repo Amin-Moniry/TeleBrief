@@ -401,8 +401,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     user = update.effective_user
     touch_user(user.id, user)
     await update.effective_message.reply_text(
-        "🌐 <b>زبان خود را انتخاب کنید | Choose your language</b>\n\n"
-        "برای ادامه زبان را انتخاب کنید. | Select a language to continue.",
+        "🌐 <b>زبان خود را انتخاب کنید | Choose your language</b>\n",
         parse_mode=ParseMode.HTML, reply_markup=language_keyboard(),
     )
 
@@ -1204,12 +1203,21 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 parse_mode=ParseMode.HTML, reply_markup=back_keyboard(),
             )
             return
-        await query.edit_message_text("⏳ <b>در حال ارسال ۱۰ خبر بعدی...</b>", parse_mode=ParseMode.HTML)
+        # The old control message sits above the next batch. Remove it first,
+        # then send the batch, then create a fresh control message at the bottom.
+        # Editing the old message was the source of the scroll-back bug.
+        await query.answer(localized(user.id, "در حال ارسال ۱۰ خبر بعدی..."))
+        try:
+            await query.message.delete()
+        except Exception:
+            logger.debug("Could not delete the previous story pagination message", exc_info=True)
         sent, remaining = await send_story_page(context, query.message.chat_id, cache)
-        await query.edit_message_text(
-            (f"📚 <b>{sent} خبر دیگر ارسال شد</b>\n\n"
-             + (f"هنوز {remaining} خبر مهم باقی مانده." if remaining else "همه خبرهای مهم این بازه ارسال شدند.")),
-            parse_mode=ParseMode.HTML, reply_markup=more_keyboard(remaining, user.id, token),
+        await context.bot.send_message(
+            chat_id=query.message.chat_id,
+            text=(f"📚 <b>{sent} خبر دیگر ارسال شد</b>\n\n"
+                  + (f"هنوز {remaining} خبر مهم باقی مانده." if remaining else "همه خبرهای مهم این بازه ارسال شدند.")),
+            parse_mode=ParseMode.HTML,
+            reply_markup=more_keyboard(remaining, user.id, token),
         )
         if not remaining:
             context.user_data.get("digest_caches", {}).pop(token, None)
@@ -1231,12 +1239,19 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 parse_mode=ParseMode.HTML, reply_markup=back_keyboard(),
             )
             return
-        await query.edit_message_text("⏳ <b>در حال ارسال ۱۰ نکته بعدی...</b>", parse_mode=ParseMode.HTML)
+        # Move the pagination control to the end of every market batch.
+        await query.answer(localized(user.id, "در حال ارسال ۱۰ نکته بعدی..."))
+        try:
+            await query.message.delete()
+        except Exception:
+            logger.debug("Could not delete the previous market pagination message", exc_info=True)
         sent, remaining = await send_market_page(context, query.message.chat_id, cache)
-        await query.edit_message_text(
-            (f"📚 <b>{fa_num(sent)} نکته دیگر ارسال شد</b>\n\n"
-             + (f"هنوز {fa_num(remaining)} نکته مهم باقی مانده." if remaining else "همهٔ نکته‌های مهم بازار رمز ارز ارسال شدند.")),
-            parse_mode=ParseMode.HTML, reply_markup=more_market_keyboard(remaining, user.id, token),
+        await context.bot.send_message(
+            chat_id=query.message.chat_id,
+            text=(f"📚 <b>{fa_num(sent)} نکته دیگر ارسال شد</b>\n\n"
+                  + (f"هنوز {fa_num(remaining)} نکته مهم باقی مانده." if remaining else "همهٔ نکته‌های مهم بازار رمز ارز ارسال شدند.")),
+            parse_mode=ParseMode.HTML,
+            reply_markup=more_market_keyboard(remaining, user.id, token),
         )
         if not remaining:
             context.user_data.get("market_caches", {}).pop(token, None)
