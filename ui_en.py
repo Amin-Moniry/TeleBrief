@@ -11,8 +11,6 @@ EXACT = {
     "6 ساعت": "6 hours", "12 ساعت": "12 hours", "24 ساعت": "24 hours",
     "48 ساعت": "48 hours", "7 روز": "7 days", "15 روز / 360 ساعت": "15 days / 360 hours",
     "❌ لغو گزارش": "❌ Cancel report",
-    "☑️ عضویت در کانال": "☑️ Join the channel",
-    "✅ عضو شدم، بررسی کن": "✅ I joined, check now",
     "🌀 افزودن کانال": "🌀 Add Channel",
     "🌀 حذف یک کانال": "🌀 Remove a Channel",
     "🌀 پاک‌کردن همه": "🌀 Clear All",
@@ -36,8 +34,6 @@ EXACT = {
     "این گزارش متعلق به شما نیست.": "This report belongs to another user.",
     "در حال لغو گزارش...": "Canceling the report...",
     "این گزارش دیگر در جریان نیست.": "This report is no longer running.",
-    "✅ عضویت تایید شد!": "✅ Membership confirmed!",
-    "هنوز عضو کانال نشدی 🙁": "You have not joined the channel yet 🙁",
     "فرمت درست نیست. @channel یا لینک عمومی t.me/channel را بفرست.": "Invalid format. Send @channel or a public t.me/channel link.",
     "این کانال عمومی پیدا نشد یا ربات به آن دسترسی ندارد؛ نام را دوباره بررسی کن.": "I could not find or access that public channel. Check the username and try again.",
     "این کانال در لیست شما پیدا نشد. نام دقیق‌تری بفرست یا از منو انصراف بده.": "That channel is not in your list. Send the exact username or cancel from the menu.",
@@ -45,12 +41,8 @@ EXACT = {
 }
 
 REPLACEMENTS = [
-    (r"آتیش بی خاکستر", "Atish Bi Khakestar"),
     (r"سلام (.+?) عزیز، خوش اومدی!", r"Hi \1, welcome!"),
-    (r"سلام (.+?) عزیز 🌹", r"Hi \1 🌹"),
     (r"دوست عزیز", "there"),
-    (r"خوشحالیم که به TeleBrief سر زدید\. برای استفاده از امکانات ربات، لازم است ابتدا عضو کانال زیر شوید:", "Welcome to TeleBrief. To use the bot, please join the channel below first:"),
-    (r"پس از عضویت، کافی‌ست روی دکمه زیر بزنید تا بلافاصله دسترسی کامل برایتان فعال شود\.", "After joining, tap the button below to unlock full access."),
     (r"من <b>TeleBrief</b> هستم؛.*?در اختیارتان قرار می‌دهم\.</blockquote>", "I’m <b>TeleBrief</b>, an intelligence assistant for AI, cybersecurity, USD and gold, crypto, and geopolitics.\n\n<blockquote>I remove noise and duplicates, then deliver concise ranked reports with direct source links.</blockquote>"),
     (r"در خدمت شما هستم ، از طریق دکمه‌های زیر می‌توانید از امکانات ربات استفاده کنید :", "Choose an option below to get started:"),
     (r"چه گزارشی می‌خوای؟", "What report do you want?"),

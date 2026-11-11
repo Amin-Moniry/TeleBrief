@@ -122,7 +122,6 @@ The scraping core runs on deep **Telethon (MTProto)** access — no admin rights
 | <sub>Flexible time filters</sub> | <sub>Preset windows from 6 to 720 hours, plus a fully custom hour range</sub> | <sub>✅</sub> |
 | <sub>Per-user custom channels</sub> | <sub>Starts from a curated default list, then add or remove unlimited personal channels via `/addchannel`</sub> | <sub>✅</sub> |
 | <sub>Smart pagination</sub> | <sub>10 items per page, ranked by importance, with a "load more" button for the rest</sub> | <sub>✅</sub> |
-| <sub>Mandatory-join gate</sub> | <sub>Optional membership check against a required channel before granting access, fail-safe by design</sub> | <sub>✅</sub> |
 | <sub>Admin analytics (`/stats`)</sub> | <sub>Silent, admin-only command showing total users, daily growth, requests by category, and a paginated leaderboard</sub> | <sub>✅</sub> |
 | <sub>USD & gold rates</sub> | <sub>Latest USD and 18k gold prices pulled from multiple currency channels, always resolved to the freshest real-world timestamp</sub> | <sub>✅</sub> |
 | <sub>Crypto & geopolitical market report</sub> | <sub>A narrative overview of crypto market conditions and war/geopolitical risk, plus sourced highlights with 10-item pagination</sub> | <sub>✅</sub> |
